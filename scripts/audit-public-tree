@@ -56,7 +56,7 @@ done
 
 if [[ ${1:-} != "--tree-only" ]] && git rev-parse --verify HEAD >/dev/null 2>&1; then
   mapfile -t public_emails < <(git log HEAD --format='%ae%n%ce' \
-    | sort -u | rg -v '^[0-9]+[+]rblalock@users[.]noreply[.]github[.]com$') || true
+    | sort -u | rg -v '^([0-9]+[+])?[A-Za-z0-9-]+@users[.]noreply[.]github[.]com$') || true
   (( ${#public_emails[@]} == 0 )) \
     || fail "commit history contains a non-private email address"
 fi

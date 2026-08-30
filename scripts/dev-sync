@@ -42,13 +42,19 @@ trap cleanup EXIT
 cp -a -- \
   "$repo_dir/manifest.json" \
   "$repo_dir/Service.qml" \
-  "$repo_dir/IslandOverlay.qml" \
+  "$repo_dir/RetainedWindow.qml" \
   "$repo_dir/IslandBarWidget.qml" \
   "$repo_dir/components" \
   "$repo_dir/config" \
+  "$repo_dir/companions" \
   "$repo_dir/providers" \
   "$repo_dir/lib" \
   "$stage/"
+mkdir -p "$stage/scripts"
+cp -a -- "$repo_dir/scripts/osd-companion-enable" \
+  "$repo_dir/scripts/osd-companion-disable" \
+  "$repo_dir/scripts/osd-companion-remove" \
+  "$stage/scripts/"
 printf '%s\n' "$repo_dir" >"$stage/$marker"
 omarchy-plugin-validate "$stage"
 

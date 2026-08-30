@@ -42,7 +42,7 @@ ShellRoot {
       __sourceDir: Quickshell.shellDir + "/plugin"
     })
     pluginRegistry: registry
-    overlayEnabled: false
+    retainedWindowEnabled: false
   }
 
   function fail(message) {

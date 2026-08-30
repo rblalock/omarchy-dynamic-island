@@ -20,8 +20,16 @@ omarchy plugin disable rblalock.omarchy-island-osd
 ```
 
 Disabling the companion restores `omarchy.osd`; it does not edit packaged
-Omarchy files or permanently disable OSD feedback. Installing or updating the
-main Island plugin alone never enables this replacement.
+Omarchy files or permanently disable OSD feedback. It intentionally leaves the
+managed companion copy installed so it can be enabled again. Remove that copy
+and restore the stock presenter with:
+
+```bash
+~/.config/omarchy/plugins/rblalock.omarchy-island/scripts/osd-companion-remove
+```
+
+Installing or updating the main Island plugin alone never enables this
+replacement.
 
 ## Supported contract
 
@@ -87,4 +95,5 @@ omarchy-shell omarchy-island osdClose
 
 `./scripts/check` validates the root plugin and companion manifest template,
 normalization, focused-monitor routing, progress/message lifecycle, rejection while a retained surface owns
-the Island, direct companion forwarding, fallback parity, and explicit close.
+the Island, direct companion forwarding, fallback parity, explicit close, and
+installer rollback after a failed enable.

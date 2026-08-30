@@ -1,6 +1,4 @@
 [appearance]
-height = 24
-compact_width = 64
 shelf_width = 444
 shelf_height = 177
 focus_height = 233
@@ -9,8 +7,10 @@ clock_format = "HH:mm"
 
 [behavior]
 collapse_delay_ms = 70
+auto_focus_events = true
+
+[layout]
 rest_content = "activity"
-auto_expand = true
 
 [motion]
 expand_ms = 111

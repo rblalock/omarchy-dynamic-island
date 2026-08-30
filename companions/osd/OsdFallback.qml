@@ -4,6 +4,7 @@ import Quickshell.Wayland
 import qs.Commons
 import qs.Ui
 
+// Adapted from Omarchy's MIT-licensed stock OSD presentation. See LICENSE.
 PanelWindow {
   id: panel
 

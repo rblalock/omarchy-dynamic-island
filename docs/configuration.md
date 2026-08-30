@@ -1,20 +1,22 @@
 # Configuration
 
-Omarchy Island merges user overrides from `~/.config/omarchy/island.toml` over [the repository defaults](../config/default.toml) and hot-reloads both. A user file only needs the values it changes. Numeric geometry values use Omarchy's theme-scaled spacing, except an explicit `corner_radius`, which is a direct pixel value matching Hyprland.
+Omarchy Island merges user overrides from `~/.config/omarchy/island.toml` over
+[the repository defaults](../config/default.toml) and hot-reloads both. A user
+file only needs the values it changes. The parser supports the TOML forms used
+here: tables, quoted keys, strings, booleans, numbers, and single- or multiline
+arrays. Numeric geometry values use Omarchy's theme-scaled spacing, except an
+explicit `corner_radius`, which is a direct pixel value matching Hyprland.
 
 ## Placement and appearance
-
-| Key | Default | Behavior |
-|---|---:|---|
-| `placement.top_offset` | `0` | Non-negative distance from the top edge. |
 
 Island is a normal bar widget and therefore appears on every connected monitor
 where Omarchy renders its bar. Placement within each bar comes from
 `shell.json`; actions and retained detail resolve on the focused monitor.
+
+| Key | Default | Behavior |
+|---|---:|---|
+| `placement.top_offset` | `0` | Non-negative distance from the top edge for retained detail. |
 | `appearance.style` | `"system"` | `system` inherits Hyprland corner geometry. `pill`, `soft-square`, and `outline` remain explicit visual choices. |
-| `appearance.height` | `0` | Rest/Peek height; `0` inherits the active bar height. |
-| `appearance.compact_width` | `0` | Rest width; `0` sizes to clock, companion, activity, or transient content. |
-| `appearance.peek_width` | `0` | Legacy compatibility key; bar-hosted Peek always sizes to its actual widget content. |
 | `appearance.shelf_width` | `430` | Shared retained width, capped to the screen. |
 | `appearance.shelf_height` | `0` | Minimum Shelf height; `0` follows active content and oversized content scrolls. |
 | `appearance.focus_height` | `224` | Provider Focus height. |
@@ -49,8 +51,8 @@ override opts out of this inheritance.
 
 ## Layout
 
-The current live checkpoint uses a standalone interactive entry and does not
-adopt or relocate other bar widgets:
+Island uses one standalone interactive bar entry and does not adopt or relocate
+other bar widgets:
 
 ```json
 { "id": "rblalock.omarchy-island" }
@@ -64,12 +66,14 @@ The root plugin automatically starts its bundled Now Playing, Reminders,
 Screen Recording, and System Update providers. Enabled third-party plugins
 join independently when their manifest declares `omarchyIsland.quickAccess`,
 or while their activity provider publishes state. Ordinary `bar-widget`
-registration does not opt a plugin into Island. None of these mechanisms moves
-or mounts a stock widget inside Island.
+registration does not opt a plugin into Island. Clock, status indicators, and
+keyboard layout have narrow compatibility bridges when their visible stock
+widget is absent because Omarchy does not yet expose those behaviors as
+independent services; Island does not use that mechanism for discovery.
 
 `layout.rest_content` accepts `clock`, `activity`, or `auto`. `clock` always
-uses the clock at Rest. `activity` preserves the legacy leading-activity
-takeover. The default `auto` honors the leading provider's validated
+uses the clock at Rest. `activity` shows the leading activity when present. The
+default `auto` honors the leading provider's validated
 `presentation.rest`: `companion` shares Rest with the clock, `takeover`
 replaces it, and `hidden` leaves the clock alone. Provider events take over
 regardless of a companion hint. Volume and brightness transients temporarily
@@ -94,10 +98,13 @@ peek = [
 ```
 
 Built-in support covers launcher, workspaces, tray, status, Tailscale,
-Bluetooth, network, keyboard layout, system update, power, audio, display, and
-weather. Some controls delegate to stock anchors; workspaces, tray, status,
-audio, and display have Island-owned retained views. Availability rules hide
-conditional controls such as system update or battery power when inactive.
+Bluetooth, network, keyboard layout, power, audio, display, and weather. The
+stock system-update adapter remains available for explicit configurations, but
+the bundled System Update provider is the only default projection, preventing
+duplicate update controls. Some controls delegate to stock anchors;
+workspaces, tray, status, audio, and display have Island-owned retained views.
+Availability rules hide conditional controls such as battery power when
+inactive.
 
 `workspaces.count` defaults to `10`, matching Omarchy's `SUPER+1` through `SUPER+0` workspace bindings. The shelf always shows that complete range; set another positive count for a different workspace model.
 
@@ -147,16 +154,6 @@ override values are ignored. Expiry and leases are honored. A changed non-empty
 `event.id` starts event presentation; ordinary updates with the same ID do not
 retrigger it. Disabling custom QML leaves actions available through the
 declarative fallback.
-
-## Legacy compatibility
-
-- `[behavior].rest_content` is honored when the user file omits `[layout].rest_content`.
-- `[behavior].auto_expand` is honored when the user file omits `[behavior].auto_focus_events`.
-- `[behavior].keyboard_shelf` is honored when the user file omits `[behavior].keyboard_target`.
-
-These legacy user values override repository defaults for their replacements; if both old and new user keys exist, the new key wins. `quick_access_hidden` and other old provider/motion keys are harmless data but ignored by this host.
-The former `placement.output` key is also ignored now that Island follows the
-stock bar's per-monitor widget lifecycle.
 
 ## Safe disable
 

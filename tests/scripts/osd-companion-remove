@@ -1,0 +1,36 @@
+#!/bin/bash
+
+set -euo pipefail
+
+repo_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)
+test_root=$(mktemp -d "${TMPDIR:-/tmp}/omarchy-island-osd-remove.XXXXXXXX")
+cleanup() {
+  if [[ -d $test_root && $test_root == */omarchy-island-osd-remove.* ]]; then
+    rm -rf -- "$test_root"
+  fi
+}
+trap cleanup EXIT
+
+fake_bin=$test_root/bin
+target=$test_root/config/omarchy/plugins/rblalock.omarchy-island-osd
+command_log=$test_root/commands
+mkdir -p "$fake_bin" "$target"
+
+printf '%s\n' '#!/bin/bash' 'printf "omarchy %s\\n" "$*" >>"$COMMAND_LOG"' >"$fake_bin/omarchy"
+printf '%s\n' '#!/bin/bash' 'printf "shell %s\\n" "$*" >>"$COMMAND_LOG"' >"$fake_bin/omarchy-shell"
+chmod +x "$fake_bin/omarchy" "$fake_bin/omarchy-shell"
+
+set +e
+PATH="$fake_bin:$PATH" COMMAND_LOG="$command_log" XDG_CONFIG_HOME="$test_root/config" "$repo_dir/scripts/osd-companion-remove" >/dev/null 2>&1
+status=$?
+set -e
+(( status == 1 ))
+[[ -d $target ]]
+[[ ! -s $command_log ]]
+
+printf '%s\n' "$repo_dir/companions/osd" >"$target/.omarchy-island-osd-local-source"
+PATH="$fake_bin:$PATH" COMMAND_LOG="$command_log" XDG_CONFIG_HOME="$test_root/config" "$repo_dir/scripts/osd-companion-remove" >/dev/null
+[[ ! -e $target ]]
+grep -Fxq "omarchy plugin disable rblalock.omarchy-island-osd" "$command_log"
+grep -Fxq "shell shell rescanPlugins" "$command_log"
+echo "OSD_COMPANION_REMOVE_OK"

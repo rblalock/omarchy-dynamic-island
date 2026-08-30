@@ -19,6 +19,7 @@ Item {
   property var recordingStateOverride: null
   property var actionHandler: null
   property string stopOutput: ""
+  property int stopTimeoutMs: 15000
 
   function basename(path) {
     var value = String(path || "")
@@ -162,6 +163,7 @@ Item {
     started = false
     statusTimer.stop()
     completionTimer.stop()
+    stopTimeout.stop()
     if (statusProcess.running) statusProcess.running = false
     completionActive = false
     withdraw()
@@ -176,16 +178,20 @@ Item {
       if (!handled) {
         stopping = false
         publishRecording()
+      } else {
+        stopTimeout.restart()
       }
       return handled
     }
     stopOutput = ""
+    stopTimeout.restart()
     stopProcess.running = true
     return true
   }
 
   function finishStop(exitCode, output) {
-    if (!started) return
+    if (!started || !stopping) return
+    stopTimeout.stop()
     stopping = false
     recording = false
     var path = String(output || "").trim().split("\n").filter(function(line) {
@@ -197,6 +203,16 @@ Item {
       withdraw()
       delayedRefresh.restart()
     }
+  }
+
+  function stopTimedOut() {
+    if (!stopping) return false
+    stopTimeout.stop()
+    if (stopProcess.running) stopProcess.running = false
+    completionActive = false
+    withdraw()
+    delayedRefresh.restart()
+    return true
   }
 
   function onAction(activityId, actionId) {
@@ -246,5 +262,11 @@ Item {
     id: delayedRefresh
     interval: 500
     onTriggered: root.refresh()
+  }
+
+  Timer {
+    id: stopTimeout
+    interval: root.stopTimeoutMs
+    onTriggered: root.stopTimedOut()
   }
 }

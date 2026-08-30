@@ -62,9 +62,12 @@ Island reads optional user overrides from:
 ~/.config/omarchy/island.toml
 ```
 
-The file is not required and is not created, overwritten, or removed by the
-plugin. Configuration hot-reloads. See [Configuration](docs/configuration.md)
-for appearance, motion, inventory, provider ordering, and adapter settings.
+The file is not required. Island does not create it during installation or
+remove it during uninstall. If you right-click Island's clock to change its
+format, Island creates or updates only `appearance.clock_format`; hand-written
+settings are preserved. Configuration hot-reloads. See
+[Configuration](docs/configuration.md) for appearance, motion, inventory,
+provider ordering, and adapter settings.
 
 ## Island-aware plugins
 
@@ -132,8 +135,12 @@ omarchy plugin remove rblalock.omarchy-island
 ```
 
 Disabling or removing Island leaves the stock bar and user-owned
-`~/.config/omarchy/island.toml` unchanged. Disable the optional OSD companion
-first if it is installed.
+`~/.config/omarchy/island.toml` unchanged. If the optional OSD companion is
+installed, remove its managed copy before removing the main plugin:
+
+```bash
+~/.config/omarchy/plugins/rblalock.omarchy-island/scripts/osd-companion-remove
+```
 
 ## Trust and security
 
@@ -145,8 +152,8 @@ activities invoke established Omarchy commands for reminders, recording, and
 updates. Third-party provider QML is trusted code; users can disable custom QML
 globally or per provider while retaining the declarative activity fallback.
 
-Island requires no `sudo`, `pkexec`, package installation, remote build, or
-background service of its own.
+Island does not request elevated permissions, install packages, run a remote
+build, or add a background service of its own.
 
 ## Development
 
@@ -163,4 +170,5 @@ part of the public installation path.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). The optional OSD fallback contains adaptations from Omarchy
+under the same license; the upstream copyright notice is retained.

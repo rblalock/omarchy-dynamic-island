@@ -1,8 +1,8 @@
 # Design System: Omarchy Island
 
-> Current checkpoint: Island is a standalone, draggable widget inside the
-> normal Omarchy bar. The stock widgets remain untouched; Island owns its Rest,
-> proxy Peek, keyboard entry, and retained detail surfaces.
+Island is a standalone, draggable widget inside the normal Omarchy bar. The
+stock bar remains intact; Island owns its Rest, proxy Peek, keyboard entry, and
+retained detail surfaces.
 
 ## Overview
 
@@ -12,16 +12,27 @@ Omarchy Island inherits the active Omarchy visual system and concentrates it int
 
 The surface is an operate-mode shell extension: compact, theme-native, keyboard-capable, and explicit about fallback behavior. Provider artwork or custom QML may enrich the inside of the aperture, but the host continues to own its outer geometry, focus, close path, and failure state.
 
+## Inventory contract
+
+An item appears only when Island ships an enabled first-party adapter, an
+enabled plugin declares `omarchyIsland.quickAccess`, or an enabled provider
+publishes an activity. Ordinary bar registration is not Island registration.
+Unknown widgets are omitted and diagnosed rather than receiving a guessed icon
+or dead action.
+
 ## Colors
 
 - **Surface:** `Color.popups.background`, unless `appearance.background` supplies a QML color string.
 - **Primary text and glyphs:** `Color.popups.text`.
 - **Accent and selected state:** `Color.accent` through Omarchy's shared state helpers.
 - **Urgent activity:** `Color.urgent` for critical attention.
-- **Border:** absent at Rest and during compact transients; Peek and retained surfaces fade in `Color.popups.border` unless `appearance.border` overrides it. Explicit `outline` style remains outlined at Rest.
+- **Border:** absent at Rest; Peek, compact transients, and retained surfaces fade in `Color.popups.border` unless `appearance.border` overrides it. Explicit `outline` style remains outlined at Rest.
 - **Secondary text:** popup text with reduced alpha; never introduce a separate fixed neutral palette.
 
-The `outline` style uses a slightly translucent popup surface and a persistent two-pixel Rest border. `system`, `pill`, and `soft-square` use the normal popup surface with no Rest or transient border and a one-pixel boundary that fades in for Peek and retained content.
+The `outline` style uses a slightly translucent popup surface and a persistent
+two-pixel Rest border. `system`, `pill`, and `soft-square` use the normal popup
+surface with no Rest border and a one-pixel boundary that fades in whenever
+Island opens, including a compact transient.
 
 ## Typography
 
@@ -31,15 +42,31 @@ Keep labels short enough to scan in a compact shell surface. Shelf labels and de
 
 ## Layout
 
-The Island is an ordinary widget in each stock-bar surface, visible on the Hyprland-focused monitor. It inherits bar placement and height and exclusively owns Rest, Peek, activities, and transient morphs. A subordinate companion window exists only for retained Detail content and invisible Wayland keyboard capture; it never renders another Island, clock, or Peek inventory.
+The Island is an ordinary widget in every stock-bar surface. It inherits each
+bar's placement and height and owns Rest, Peek, activities, and transient
+morphs there. Actions and a subordinate retained-detail window resolve on the
+Hyprland-focused monitor. That window exists only for Detail content and
+invisible Wayland keyboard capture; it never renders another Rest clock or Peek
+inventory.
 
-Rest and Peek use the active bar height unless `appearance.height` overrides it. Their widths are content-derived unless explicitly configured. Retained views share a configurable shelf width, capped to the screen with 12 theme-scaled pixels of clearance per side. Shelf height derives from the active collection plus retained chrome, treats an explicit height as a minimum, and scrolls only when screen height becomes the cap. Focus and Controls retain separate configured heights.
+Rest and Peek use the active bar height and content-derived width. Retained
+views share a configurable shelf width, capped to the screen with 12
+theme-scaled pixels of clearance per side. Shelf height derives from the active
+collection plus retained chrome, treats an explicit height as a minimum, and
+scrolls only when screen height becomes the cap. Focus and Controls retain
+separate configured heights.
 
-The bar-hosted Peek renders lightweight controls for configured first-party adapters, registered plugin quick access, and current provider activity. Pointer hover and keyboard entry operate that same inventory. Stock widgets remain mounted in the normal bar.
+The bar-hosted Peek renders lightweight controls for configured first-party
+adapters, registered plugin quick access, and current provider activity.
+Pointer hover and keyboard entry operate that same inventory. Ordinary stock
+widgets remain independently placeable in the normal bar.
 
 ## Elevation & Depth
 
-The Island uses the theme's popup surface and border rather than inventing a shadow system. Depth comes from overlay placement, tonal separation, the boundary stroke, and the surface morph. Rest and Peek mask input to the card; retained views extend the input mask for outside-click dismissal.
+The Island uses the theme's popup surface and border rather than inventing a
+shadow system. Depth comes from retained-window placement, tonal separation,
+the boundary stroke, and the surface morph. Rest and Peek mask input to the
+card; retained views extend the input mask for outside-click dismissal.
 
 ## Shapes
 
@@ -60,7 +87,10 @@ Buttons inside shelves inherit that same effective radius. Persistent current/en
 - Appears immediately on pointer entry and collapses after the configured delay.
 - Keyboard invocation retains this same horizontal surface instead of changing to a separate layout. Arrows and `h/j/k/l` move the fixed focus chin; pointer hover can take over selection; activation morphs into the target surface or delegates to its stock panel; Escape closes.
 - Renders compact proxy controls and routes pointer variants, scrolling, keyboard activation, and panel handoff through the shell or a compatibility adapter.
-- Keeps the original registered bar-widget components mounted only in the stock bar.
+- Does not instantiate arbitrary bar widgets. Clock, status indicators, and
+  keyboard layout have explicit hidden compatibility bridges when their visible
+  stock widgets are absent because Omarchy exposes no independent service API
+  for those behaviors.
 - Provider compact or event QML may temporarily replace Rest; load failure returns to the declarative host presentation.
 - Opening a native stock panel contracts Peek to the selected native anchor
   with an inset accent chin; the full inventory does not remain open above it.
@@ -117,13 +147,16 @@ Buttons inside shelves inherit that same effective radius. Persistent current/en
 
 - **Don't** replace the stock bar or relocate its widgets.
 - **Don't** imply that a delegated panel is Island-native while it still opens at a stock anchor.
-- **Don't** let plugin custom QML own the overlay window, global focus policy, or close contract.
+- **Don't** let plugin custom QML own the retained window, global focus policy, or close contract.
 - **Don't** render unresolvable plugins as inert controls; report them through inspection.
 - **Don't** use looping or decorative idle motion.
 
-## Documented debt
+## Current boundaries
 
 - A visual editor for enabling and ordering built-in adapters is not implemented.
-- Delegated launcher, system, and weather panels remain at their stock anchors. Audio and Display have host-owned Focus adapters, but their complete stock panels remain at stock anchors.
+- Delegated launcher, system, and weather panels remain at stock anchors. Audio
+  and Display have host-owned Focus adapters, while their complete stock panels
+  remain at stock anchors.
 - Custom provider QML is trusted in-process plugin code, not isolated content.
-- A public, versioned provider SDK and replacement-bar parity contract are still aspirational.
+- Schema version 1 is the public provider contract. Future work is tracked in
+  [ROADMAP.md](ROADMAP.md).

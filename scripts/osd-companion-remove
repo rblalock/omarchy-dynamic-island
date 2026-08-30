@@ -1,0 +1,37 @@
+#!/bin/bash
+
+set -euo pipefail
+
+repo_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
+source_dir=$repo_dir/companions/osd
+plugin_id=rblalock.omarchy-island-osd
+plugin_root=${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/plugins
+target=$plugin_root/$plugin_id
+marker=.omarchy-island-osd-local-source
+
+if [[ ! -e $target && ! -L $target ]]; then
+  omarchy plugin disable "$plugin_id"
+  echo "Omarchy Island OSD companion is disabled and was not installed"
+  exit 0
+fi
+if [[ -L $target ]]; then
+  installed_source=$(readlink -f -- "$target")
+  [[ $installed_source == "$source_dir" ]] || {
+    echo "Refusing to remove plugin symlink: $target -> $installed_source" >&2
+    exit 1
+  }
+elif [[ -d $target && -f $target/$marker && $(<"$target/$marker") == "$source_dir" ]]; then
+  :
+else
+  echo "Refusing to remove unmanaged plugin path: $target" >&2
+  exit 1
+fi
+
+omarchy plugin disable "$plugin_id"
+if [[ -L $target ]]; then
+  unlink -- "$target"
+else
+  rm -rf -- "$target"
+fi
+omarchy-shell shell rescanPlugins >/dev/null
+echo "Omarchy Island OSD companion was removed; stock omarchy.osd is restored"

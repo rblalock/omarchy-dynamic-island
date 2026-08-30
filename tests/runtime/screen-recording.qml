@@ -120,6 +120,21 @@ ShellRoot {
         return
       }
 
+      provider.recordingStateOverride = {
+        active: true,
+        elapsedSeconds: 3,
+        filename: "/tmp/screenrecording-timeout.mp4"
+      }
+      provider.refresh()
+      harness.withdrawnActivity = ""
+      provider.beginStop()
+      if (!provider.stopTimedOut() || provider.stopping
+          || harness.withdrawnActivity !== "rblalock.screen-recording:screen-recording") {
+        console.error("SCREEN_RECORDING_FAIL bounded stop")
+        Qt.exit(55)
+        return
+      }
+
       console.log("SCREEN_RECORDING_OK")
       Qt.quit()
     }

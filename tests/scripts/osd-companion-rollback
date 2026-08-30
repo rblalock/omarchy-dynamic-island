@@ -1,0 +1,59 @@
+#!/bin/bash
+
+set -euo pipefail
+
+repo_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)
+test_root=$(mktemp -d "${TMPDIR:-/tmp}/omarchy-island-osd-rollback.XXXXXXXX")
+cleanup() {
+  if [[ -d $test_root && $test_root == */omarchy-island-osd-rollback.* ]]; then
+    rm -rf -- "$test_root"
+  fi
+}
+trap cleanup EXIT
+
+fake_bin=$test_root/bin
+plugin_root=$test_root/config/omarchy/plugins
+target=$plugin_root/rblalock.omarchy-island-osd
+mkdir -p "$fake_bin" "$target"
+printf '%s\n' "$repo_dir/companions/osd" >"$target/.omarchy-island-osd-local-source"
+printf 'previous installation\n' >"$target/previous.txt"
+
+for command_name in omarchy-shell; do
+  printf '#!/bin/bash\nexit 0\n' >"$fake_bin/$command_name"
+  chmod +x "$fake_bin/$command_name"
+done
+printf '%s\n' '#!/bin/bash' >"$fake_bin/omarchy-plugin-validate"
+printf '%s\n' 'count=0' >>"$fake_bin/omarchy-plugin-validate"
+printf '%s\n' '[[ ! -f $VALIDATE_COUNT ]] || count=$(<"$VALIDATE_COUNT")' >>"$fake_bin/omarchy-plugin-validate"
+printf '%s\n' 'count=$((count + 1))' 'printf "%s\\n" "$count" >"$VALIDATE_COUNT"' >>"$fake_bin/omarchy-plugin-validate"
+printf '%s\n' 'if [[ ${VALIDATE_FAIL_ON_SECOND:-0} == 1 && $count == 2 ]]; then exit 43; fi' >>"$fake_bin/omarchy-plugin-validate"
+printf '%s\n' 'exit 0' >>"$fake_bin/omarchy-plugin-validate"
+chmod +x "$fake_bin/omarchy-plugin-validate"
+
+printf '%s\n' '#!/bin/bash' >"$fake_bin/omarchy"
+printf '%s\n' 'if [[ $1 == plugin && $2 == list ]]; then' >>"$fake_bin/omarchy"
+printf '%s\n' '  printf "ID STATUS\\nrblalock.omarchy-island-osd disabled\\n"' >>"$fake_bin/omarchy"
+printf '%s\n' '  exit 0' 'fi' >>"$fake_bin/omarchy"
+printf '%s\n' 'if [[ $1 == plugin && $2 == enable ]]; then exit 42; fi' >>"$fake_bin/omarchy"
+printf '%s\n' 'exit 0' >>"$fake_bin/omarchy"
+chmod +x "$fake_bin/omarchy"
+
+validate_count=$test_root/validate-count
+set +e
+PATH="$fake_bin:$PATH" VALIDATE_COUNT="$validate_count" XDG_CONFIG_HOME="$test_root/config" "$repo_dir/scripts/osd-companion-enable" >/dev/null 2>&1
+status=$?
+set -e
+
+(( status == 42 ))
+[[ $(<"$target/previous.txt") == "previous installation" ]]
+[[ ! -f $target/manifest.json ]]
+
+rm -f -- "$validate_count"
+set +e
+PATH="$fake_bin:$PATH" VALIDATE_COUNT="$validate_count" VALIDATE_FAIL_ON_SECOND=1 XDG_CONFIG_HOME="$test_root/config" "$repo_dir/scripts/osd-companion-enable" >/dev/null 2>&1
+status=$?
+set -e
+(( status == 43 ))
+[[ $(<"$target/previous.txt") == "previous installation" ]]
+[[ ! -f $target/manifest.json ]]
+echo "OSD_COMPANION_ROLLBACK_OK"

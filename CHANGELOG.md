@@ -8,3 +8,8 @@
 - Support Island-aware third-party quick access and activity providers.
 - Provide keyboard navigation, focused-monitor routing, TOML configuration, and diagnostics.
 - Keep the stock Omarchy OSD unchanged unless the optional companion is explicitly enabled.
+- Validate schema version 1 registrations, declared actions, provider failback,
+  and provider-owned event cleanup.
+- Support documented multiline configuration arrays.
+- Bound screen-recording finalization and make the optional OSD install
+  rollback-safe and removable.

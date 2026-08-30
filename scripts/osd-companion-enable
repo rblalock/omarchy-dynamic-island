@@ -27,12 +27,26 @@ fi
 
 stage=$(mktemp -d "$plugin_root/.$plugin_id.XXXXXXXX")
 old_target=""
-install_complete=0
+old_link=""
+activation_complete=0
+target_replaced=0
 cleanup() {
+  local status=$?
   [[ -d ${stage:-} ]] && rm -rf -- "$stage"
-  if (( ! install_complete )) && [[ -n $old_target && -e $old_target && ! -e $target ]]; then
-    mv -- "$old_target" "$target"
+  if (( ! activation_complete && target_replaced )); then
+    if [[ -d $target && -f $target/$marker && $(<"$target/$marker") == "$source_dir" ]]; then
+      rm -rf -- "$target"
+    fi
+    if [[ -n $old_target && -e $old_target && ! -e $target ]]; then
+      mv -- "$old_target" "$target"
+    elif [[ -n $old_link && ! -e $target && ! -L $target ]]; then
+      ln -s -- "$old_link" "$target"
+    else
+      omarchy plugin disable "$plugin_id" >/dev/null 2>&1 || true
+    fi
+    omarchy-shell shell rescanPlugins >/dev/null 2>&1 || true
   fi
+  return "$status"
 }
 trap cleanup EXIT
 
@@ -43,15 +57,17 @@ printf '%s\n' "$source_dir" >"$stage/$marker"
 omarchy-plugin-validate "$stage"
 
 if [[ -L $target ]]; then
+  old_link=$(readlink -- "$target")
   unlink -- "$target"
+  target_replaced=1
 elif [[ -d $target ]]; then
   old_target="$plugin_root/.$plugin_id.previous.$$"
   mv -- "$target" "$old_target"
+  target_replaced=1
 fi
+(( target_replaced )) || target_replaced=1
 mv -- "$stage" "$target"
 stage=""
-install_complete=1
-[[ -z $old_target ]] || rm -rf -- "$old_target"
 
 omarchy-shell shell rescanPlugins >/dev/null
 plugin_discovered=0
@@ -67,4 +83,6 @@ if (( ! plugin_discovered )); then
   exit 1
 fi
 omarchy plugin enable "$plugin_id"
+activation_complete=1
+[[ -z $old_target ]] || rm -rf -- "$old_target"
 echo "Omarchy Island OSD companion is enabled; disabling it restores stock omarchy.osd"

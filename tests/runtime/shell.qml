@@ -205,7 +205,9 @@ ShellRoot {
           omarchyIslandExpanded: "Expanded.qml"
         },
         omarchyIsland: {
+          schemaVersion: 1,
           id: "test.activity",
+          capabilities: ["activity-provider", "quick-access", "custom-presentation"],
           displayName: "Test activity",
           quickAccess: { id: "test.quick", target: "test.panel", label: "Test panel", glyph: "Q" }
         },
@@ -235,7 +237,7 @@ ShellRoot {
     shell: fakeShell
     manifest: harness.hostManifest
     pluginRegistry: fakePluginRegistry
-    overlayEnabled: false
+    retainedWindowEnabled: false
   }
 
   IslandPlugin.IslandBarWidget {
@@ -381,7 +383,7 @@ ShellRoot {
         return
       }
       var peekIds = service.peekItems.map(function(item) { return item.id })
-      var expectedPeek = ["omarchy-island.activities", "test.quick", "omarchy.menu", "omarchy.workspaces", "omarchy.tray", "omarchy.indicators", "omarchy.tailscale", "omarchy.bluetooth", "omarchy.network", "omarchy.audio", "omarchy.monitor", "omarchy.keyboard-layout", "omarchy.system-update", "omarchy.power"]
+      var expectedPeek = ["omarchy-island.activities", "test.quick", "omarchy.menu", "omarchy.workspaces", "omarchy.tray", "omarchy.indicators", "omarchy.tailscale", "omarchy.bluetooth", "omarchy.network", "omarchy.audio", "omarchy.monitor", "omarchy.keyboard-layout", "omarchy.power"]
       if (JSON.stringify(peekIds) !== JSON.stringify(expectedPeek)
           || service.peekItems[service.peekItems.length - 1].glyph !== "BAT"
           || service.proxyDefinition("omarchy.indicators").glyph !== "󰘮") {
@@ -431,8 +433,7 @@ ShellRoot {
         return
       }
       var reducedMotion = Quickshell.env("OMARCHY_ISLAND_REDUCED_MOTION") === "1"
-      if (service.configuredHeight !== 24 || service.configuredCompactWidth !== 64
-          || service.clockFormat !== "HH:mm" || service.collapseDelayMs !== 70
+      if (service.clockFormat !== "HH:mm" || service.collapseDelayMs !== 70
           || service.motionEnabled !== !reducedMotion
           || service.motionExpandMs !== (reducedMotion ? 0 : 111)
           || service.motionCollapseMs !== (reducedMotion ? 0 : 77)
@@ -759,12 +760,6 @@ ShellRoot {
       if (!service.openClockPanel() || harness.clockPanelToggles !== 1) {
         console.error("HARNESS_FAIL clock panel routing", service.inspectJson())
         Qt.exit(12)
-        return
-      }
-      service.previewMode = "peek"
-      if (service.inspectObject().previewMode !== "peek") {
-        console.error("HARNESS_FAIL preview state", service.inspectJson())
-        Qt.exit(19)
         return
       }
       console.log("HARNESS_OK", service.inspectJson())

@@ -29,27 +29,44 @@ function iconFor(name, percent) {
   return ""
 }
 
+function stateForPayload(payload) {
+  var p = payload || {}
+  var rawMessage = String(p.message || "")
+  var rawValue = p.value === undefined ? "" : String(p.value)
+  var rawMax = p.max === undefined ? "100" : String(p.max)
+  var rawDuration = p.duration === undefined ? "1200" : String(p.duration)
+  var parsedMax = parseInt(rawMax || "100", 10)
+  var maxValue = isNaN(parsedMax) ? 100 : Math.max(1, parsedMax)
+  var parsedValue = parseInt(rawValue || "0", 10)
+  var hasProgress = rawValue !== "" && !isNaN(parsedValue) && rawMessage === ""
+  var value = hasProgress ? clamp(parsedValue, 0, maxValue) : 0
+  var percent = hasProgress ? Math.round(value * 100 / maxValue) : -1
+  var parsedDuration = parseInt(rawDuration || "1200", 10)
+  var message = String(rawMessage || (hasProgress ? (p.progressText || percent + "%") : ""))
+
+  return {
+    iconKey: String(p.icon || "").toLowerCase(),
+    glyph: iconFor(p.icon || "", percent),
+    icon: iconFor(p.icon || "", percent),
+    message: message,
+    value: value,
+    maxValue: maxValue,
+    progress: hasProgress ? value / maxValue : 0,
+    hasProgress: hasProgress,
+    duration: isNaN(parsedDuration) ? 1200 : Math.max(0, parsedDuration),
+    accessibleName: message !== "" ? message : "System status"
+  }
+}
+
 function parse(payloadJson) {
   try {
-    var p = JSON.parse(payloadJson || "{}")
-    var rawMessage = String(p.message || "")
-    var rawValue = p.value === undefined ? "" : String(p.value)
-    var maxValue = Math.max(1, parseInt(p.max === undefined ? "100" : String(p.max), 10) || 100)
-    var parsedValue = parseInt(rawValue || "0", 10)
-    var hasProgress = rawValue !== "" && !isNaN(parsedValue) && rawMessage === ""
-    var value = hasProgress ? clamp(parsedValue, 0, maxValue) : 0
-    var percent = hasProgress ? Math.round(value * 100 / maxValue) : -1
-    var parsedDuration = parseInt(p.duration === undefined ? "1200" : String(p.duration), 10)
-    return {
-      iconKey: String(p.icon || "").toLowerCase(),
-      icon: iconFor(p.icon || "", percent),
-      message: String(rawMessage || (hasProgress ? (p.progressText || percent + "%") : "")),
-      value: value,
-      maxValue: maxValue,
-      hasProgress: hasProgress,
-      duration: isNaN(parsedDuration) ? 1200 : Math.max(0, parsedDuration)
-    }
+    var payload = typeof payloadJson === "string" ? JSON.parse(payloadJson || "{}") : payloadJson
+    return stateForPayload(payload && typeof payload === "object" ? payload : {})
   } catch (error) {
     return null
   }
+}
+
+if (typeof module !== "undefined") {
+  module.exports = { iconFor: iconFor, stateForPayload: stateForPayload, parse: parse }
 }

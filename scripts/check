@@ -64,13 +64,17 @@ cp companions/osd/OsdBridge.qml companions/osd/OsdFallback.qml \
   companions/osd/OsdModel.js "$harness_dir/osd-plugin/"
 cp companions/osd/manifest.example.json "$harness_dir/osd-plugin/manifest.json"
 omarchy-plugin-validate "$harness_dir/osd-plugin"
+cmp --silent lib/OsdModel.js companions/osd/OsdModel.js || {
+  echo "Root and companion OSD normalization must stay identical" >&2
+  exit 1
+}
 
 test -f .agents/skills/omarchy-island/SKILL.md
 test -f .agents/skills/omarchy-island/references/provider-api.md
 rg -q '^name: omarchy-island$' .agents/skills/omarchy-island/SKILL.md
 
-if rg -n 'ClockButton|ActivityPill|VolumePill|DisplayPill|ProxyButton' IslandOverlay.qml; then
-  echo "IslandOverlay.qml must not render a duplicate Rest, Peek, or transient surface" >&2
+if rg -n 'ClockButton|ActivityPill|VolumePill|DisplayPill|ProxyButton' RetainedWindow.qml; then
+  echo "RetainedWindow.qml must not render a duplicate Rest, Peek, or transient surface" >&2
   exit 1
 fi
 
@@ -87,7 +91,7 @@ mkdir -p "$harness_dir/provider"
 mkdir -p "$harness_dir/config/omarchy"
 cp -a /usr/share/omarchy/shell/Commons "$harness_dir/Commons"
 cp -a /usr/share/omarchy/shell/Ui "$harness_dir/Ui"
-cp -a Service.qml IslandOverlay.qml IslandBarWidget.qml components config lib providers "$harness_dir/plugin/"
+cp -a Service.qml RetainedWindow.qml IslandBarWidget.qml components config lib providers "$harness_dir/plugin/"
 cp tests/runtime/shell.qml "$harness_dir/shell.qml"
 cp tests/fixtures/island.toml "$harness_dir/config/omarchy/island.toml"
 cp tests/fixtures/provider/*.qml "$harness_dir/provider/"
@@ -118,5 +122,7 @@ run_provider_harness tests/fixtures/provider provider \
   tests/runtime/provider-conformance.qml provider-conformance-shell.qml PROVIDER_CONFORMANCE_OK
 run_provider_harness companions/osd osd_companion \
   tests/runtime/osd-companion.qml osd-companion-shell.qml OSD_COMPANION_OK
+bash tests/scripts/osd-companion-rollback
+bash tests/scripts/osd-companion-remove
 
 echo "Omarchy Island checks passed"

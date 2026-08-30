@@ -6,7 +6,7 @@ import qs.Commons
 import qs.Ui
 import "components"
 
-// Companion window for retained detail panels and keyboard focus only. The
+// Retained companion window for detail panels and keyboard focus only. The
 // visible Rest and Inventory states live exclusively in IslandBarWidget.qml.
 Item {
   id: root
@@ -118,8 +118,6 @@ Item {
         z: 1
         visible: window.retained && !window.keyboardPeek
 
-        readonly property real barHeight: root.island && root.island.configuredHeight > 0
-          ? Style.space(root.island.configuredHeight) : Style.bar.sizeHorizontal
         readonly property real shelfWidth: root.island && root.island.configuredShelfWidth > 0
           ? Style.space(root.island.configuredShelfWidth) : Style.space(430)
         readonly property real retainedWidth: Math.min(shelfWidth, window.width - Style.space(24))
@@ -194,9 +192,8 @@ Item {
           onClicked: function(event) { event.accepted = true }
         }
 
-        // Retained shelves and Focus views arrive from the same borderless bar
-        // surface as Rest and transients. Fade their boundary in with the
-        // destination content instead of flashing a fully drawn frame.
+        // Rest is borderless. Fade the retained boundary in with destination
+        // content instead of flashing a fully drawn frame.
         BorderSurface {
           anchors.fill: parent
           z: 2

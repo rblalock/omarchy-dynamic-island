@@ -48,6 +48,8 @@ QtObject {
   }
 
   function onAction(activityId, actionId) {
+    var observer = manifest ? manifest.__testObserver : null
+    if (observer && observer.throwActions === true) throw new Error("fixture action failure")
     lastAction = activityId + ":" + actionId
     incrementObserver("actions")
     notifyObserver("lastAction", lastAction)

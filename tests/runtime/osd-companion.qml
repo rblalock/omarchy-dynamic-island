@@ -60,6 +60,14 @@ ShellRoot {
         return
       }
       bridge.close()
+      if (!bridge.open('{"icon":"volume","value":25,"max":"not-a-number"}')
+          || !bridge.fallbackEvent || bridge.fallbackEvent.maxValue !== 100
+          || Math.abs(bridge.fallbackEvent.progress - 0.25) > 0.001) {
+        console.error("OSD_COMPANION_FAIL invalid maximum normalization")
+        Qt.exit(5)
+        return
+      }
+      bridge.close()
       if (bridge.fallbackOpened || bridge.state() !== "closed" || harness.closedCount < 2) {
         console.error("OSD_COMPANION_FAIL close lifecycle")
         Qt.exit(4)

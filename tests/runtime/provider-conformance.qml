@@ -7,6 +7,7 @@ ShellRoot {
   id: harness
 
   property bool providerEnabled: true
+  property bool replacementEnabled: false
 
   QtObject {
     id: observer
@@ -15,6 +16,17 @@ ShellRoot {
     property int actions: 0
     property bool running: false
     property string lastAction: ""
+    property bool throwActions: false
+  }
+
+  QtObject {
+    id: replacementObserver
+    property int starts: 0
+    property int stops: 0
+    property int actions: 0
+    property bool running: false
+    property string lastAction: ""
+    property bool throwActions: false
   }
 
   readonly property var healthyManifest: ({
@@ -81,6 +93,48 @@ ShellRoot {
     __sourceDir: Quickshell.shellDir + "/provider"
   })
 
+  readonly property var invalidSchemaManifest: ({
+    schemaVersion: 1,
+    id: "test.invalid-schema",
+    name: "Invalid schema",
+    entryPoints: {},
+    omarchyIsland: {
+      schemaVersion: 2,
+      id: "test.invalid-schema",
+      capabilities: ["quick-access"],
+      quickAccess: { target: "test.invalid-schema" }
+    },
+    __sourceDir: Quickshell.shellDir + "/provider"
+  })
+
+  readonly property var invalidCapabilitiesManifest: ({
+    schemaVersion: 1,
+    id: "test.invalid-capabilities",
+    name: "Invalid capabilities",
+    entryPoints: { omarchyIslandProvider: "Provider.qml" },
+    omarchyIsland: {
+      schemaVersion: 1,
+      id: "test.invalid-capabilities",
+      capabilities: []
+    },
+    __sourceDir: Quickshell.shellDir + "/provider"
+  })
+
+  readonly property var replacementManifest: ({
+    schemaVersion: 1,
+    id: "test.system-update-replacement",
+    name: "System update replacement",
+    entryPoints: { omarchyIslandProvider: "Provider.qml" },
+    omarchyIsland: {
+      schemaVersion: 1,
+      id: "rblalock.system-update",
+      capabilities: ["activity-provider"],
+      displayName: "System update replacement"
+    },
+    __sourceDir: Quickshell.shellDir + "/provider",
+    __testObserver: replacementObserver
+  })
+
   QtObject {
     id: fakeBar
     function focusedScreenName() { return "" }
@@ -99,11 +153,16 @@ ShellRoot {
     property var installedPlugins: ({
       "test.island-provider": harness.healthyManifest,
       "test.broken-provider": harness.brokenManifest,
-      "test.quick-only": harness.quickAccessManifest
+      "test.quick-only": harness.quickAccessManifest,
+      "test.invalid-schema": harness.invalidSchemaManifest,
+      "test.invalid-capabilities": harness.invalidCapabilitiesManifest,
+      "test.system-update-replacement": harness.replacementManifest
     })
     function isEnabled(pluginId) {
       return pluginId === "test.broken-provider" || pluginId === "test.quick-only"
+        || pluginId === "test.invalid-schema" || pluginId === "test.invalid-capabilities"
         || (pluginId === "test.island-provider" && harness.providerEnabled)
+        || (pluginId === "test.system-update-replacement" && harness.replacementEnabled)
     }
     function entryPointUrl(candidate, kind) {
       var entry = candidate && candidate.entryPoints ? candidate.entryPoints[kind] : ""
@@ -116,7 +175,7 @@ ShellRoot {
     shell: fakeShell
     manifest: ({ id: "rblalock.omarchy-island" })
     pluginRegistry: registry
-    overlayEnabled: false
+    retainedWindowEnabled: false
   }
 
   IslandComponents.ActivityShelf {
@@ -152,6 +211,8 @@ ShellRoot {
       var loadedDiagnostic = harness.diagnostic("test.activity")
       var brokenDiagnostic = harness.diagnostic("test.broken")
       var quickDiagnostic = harness.diagnostic("test.quick-registration")
+      var schemaDiagnostic = harness.diagnostic("test.invalid-schema")
+      var capabilitiesDiagnostic = harness.diagnostic("test.invalid-capabilities")
       if (!loadedDiagnostic || loadedDiagnostic.status !== "loaded"
           || loadedDiagnostic.pluginId !== "test.island-provider"
           || loadedDiagnostic.providerUrl.indexOf("Provider.qml") === -1
@@ -164,7 +225,11 @@ ShellRoot {
           || brokenDiagnostic.error === "" || !quickDiagnostic
           || quickDiagnostic.status !== "discovered"
           || quickDiagnostic.quickAccessId !== "test.quick-only"
-          || quickDiagnostic.activities.length !== 0)
+          || quickDiagnostic.activities.length !== 0
+          || !schemaDiagnostic || schemaDiagnostic.status !== "failed"
+          || schemaDiagnostic.error.indexOf("schemaVersion") === -1
+          || !capabilitiesDiagnostic || capabilitiesDiagnostic.status !== "failed"
+          || capabilitiesDiagnostic.error.indexOf("declared together") === -1)
         return harness.fail("structured provider diagnostics")
 
       provider.start()
@@ -182,21 +247,43 @@ ShellRoot {
       service.update("test.activity", "build", { primaryAction: "missing" })
       if (service.currentActivity.primaryAction !== "")
         return harness.fail("invalid primary action normalization")
+      service.update("test.activity", "build", {
+        actions: [
+          { id: "run", label: "Run" },
+          { id: "", label: "Missing ID" },
+          { id: "run", label: "Duplicate" }
+        ]
+      })
+      if (service.currentActivity.actions.length !== 1
+          || service.currentActivity.actions[0].label !== "Run")
+        return harness.fail("declared action normalization")
 
       if (!service.routeAction("test.activity", "build", "run")
           || observer.actions !== 1 || observer.lastAction !== "build:run")
         return harness.fail("typed action routing")
+      if (service.routeAction("test.activity", "build", "missing"))
+        return harness.fail("undeclared action rejection")
+      observer.throwActions = true
+      if (service.routeAction("test.activity", "build", "run")
+          || harness.diagnostic("test.activity").error.indexOf("fixture action failure") === -1)
+        return harness.fail("provider action failure isolation")
+      observer.throwActions = false
 
       if (activityShelf.customUrl.indexOf("MissingExpanded.qml") === -1
           || activityShelf.customReady)
         return harness.fail("missing custom view declarative fallback")
 
       harness.providerEnabled = false
+      service.update("test.activity", "build", {
+        event: { id: "disable-event", title: "Provider event" }
+      })
+      if (!service.eventActive) return harness.fail("provider event setup")
       service.discoverProviders()
       var disabledDiagnostic = harness.diagnostic("test.activity")
       if (service.providerObjects["test.activity"] !== undefined
           || service.activities.length !== 0 || service.quickAccessItems.length !== 1
           || observer.stops !== 1 || observer.running || !disabledDiagnostic
+          || service.eventActive
           || disabledDiagnostic.status !== "disabled"
           || disabledDiagnostic.reason !== "plugin-disabled"
           || disabledDiagnostic.activities.length !== 0)
@@ -215,6 +302,30 @@ ShellRoot {
       service.discoverProviders()
       if (observer.starts !== 2 || service.activities.length !== 1)
         return harness.fail("stable rediscovery")
+
+      var conformanceConfig = service.copyObject(service.userConfig)
+      var providerPolicy = service.copyObject(conformanceConfig.providers)
+      providerPolicy.disabled = (providerPolicy.disabled || []).filter(function(providerId) {
+        return providerId !== "rblalock.system-update"
+      })
+      conformanceConfig.providers = providerPolicy
+      service.userConfig = conformanceConfig
+      service.discoverProviders()
+      var bundledOwner = service.providerManifests["rblalock.system-update"]
+      if (!bundledOwner || !bundledOwner.__isBundledIslandProvider)
+        return harness.fail("bundled provider setup")
+      harness.replacementEnabled = true
+      service.discoverProviders()
+      var externalOwner = service.providerManifests["rblalock.system-update"]
+      if (!externalOwner || externalOwner.id !== "test.system-update-replacement"
+          || replacementObserver.starts !== 1)
+        return harness.fail("external provider supersession")
+      harness.replacementEnabled = false
+      service.discoverProviders()
+      var restoredOwner = service.providerManifests["rblalock.system-update"]
+      if (!restoredOwner || !restoredOwner.__isBundledIslandProvider
+          || replacementObserver.stops !== 1)
+        return harness.fail("single-pass bundled provider failback")
 
       console.log("PROVIDER_CONFORMANCE_OK")
       Qt.quit()

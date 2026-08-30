@@ -10,6 +10,23 @@ custom presentation QML only when the host fallback is insufficient. The
 smallest complete provider is [`providers/system-update/`](../providers/system-update/);
 do not copy every entry point from the richer examples by default.
 
+## Version 1 registration rules
+
+Island validates registrations before loading or projecting them. Schema
+version 1 accepts only `activity-provider`, `quick-access`, and
+`custom-presentation` capabilities:
+
+- `activity-provider` and `entryPoints.omarchyIslandProvider` must appear together.
+- `quick-access` and an `omarchyIsland.quickAccess` object must appear together;
+  enabled quick access requires a non-empty `target`.
+- Any custom presentation entry point requires both `activity-provider` and
+  `custom-presentation`. Declaring `custom-presentation` without a presentation
+  entry point is also invalid.
+- Unknown or duplicate capabilities fail registration instead of being guessed.
+
+Invalid registrations appear as `failed` in `providerDiagnostics` with an
+actionable `error` and do not suppress a valid bundled fallback.
+
 ## Quick access
 
 Use quick access when the plugin already has a summonable panel, overlay, menu,
@@ -71,6 +88,11 @@ activation through `onAction`; if the reference is absent or invalid,
 activation opens Activity Focus. This is intended only for established
 single-click semantics such as stopping a screen recording. Provider QML still
 does not intercept or redefine the Island's outer click target.
+
+Island routes only actions declared on the live activity. Returning `false`
+from `onAction` rejects the action; no return value means accepted. Exceptions
+are contained, return failure to the caller, and are recorded in the provider's
+diagnostic instead of escaping into the host.
 
 An activity can provide a host-level Rest hint alongside its semantic state:
 
@@ -186,6 +208,10 @@ Bundled diagnostics additionally set `bundled: true` and use the root Island
 plugin ID as their source. This makes a one-command installation inspectable
 without representing the built-in implementations as separately installed
 plugins.
+
+An enabled external provider with the same provider ID replaces a bundled
+provider. Disable, removal, invalid registration, or startup failure restores
+the bundled owner during the same registry reconciliation.
 
 The existing `providers`, `quickAccess`, and `activities` arrays remain as
 compact compatibility summaries. Inspect diagnostics before adding fallback

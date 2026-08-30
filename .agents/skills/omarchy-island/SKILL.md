@@ -23,7 +23,9 @@ Read [references/provider-api.md](references/provider-api.md) before authoring o
 ## Preserve host ownership
 
 - Keep Island as one movable widget in the normal Omarchy bar.
-- Do not hide, replace, mount, or mirror the stock bar and its widgets.
+- Do not hide, replace, or mirror the stock bar. Do not instantiate arbitrary
+  bar widgets for discovery; only the repository's documented clock,
+  indicators, and keyboard-layout compatibility bridges are allowed.
 - Do not infer Island membership from `bar-widget` registration.
 - Do not let provider QML own the outer surface, border, window, hover target, dismissal, monitor selection, or keyboard loop.
 - Use `primaryAction` only for an established single-activation behavior. Otherwise let activation open Activity Focus.

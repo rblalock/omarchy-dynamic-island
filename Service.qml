@@ -5,6 +5,7 @@ import Quickshell.Io
 import qs.Commons
 import "lib/Toml.js" as Toml
 import "lib/OsdModel.js" as OsdModel
+import "lib/ProviderContract.js" as ProviderContract
 
 Item {
   id: root
@@ -12,7 +13,7 @@ Item {
   property var shell: null
   property var manifest: null
   property var pluginRegistry: null
-  property bool overlayEnabled: true
+  property bool retainedWindowEnabled: true
   property var barHosts: []
   readonly property bool barHosted: barHosts.length > 0
   readonly property bool keyboardPeekActive: barHosted && keyboardEntryActive && retainedMode === "peek"
@@ -25,10 +26,7 @@ Item {
   property var config: Toml.merge(defaultConfig, userConfig)
   property string configError: ""
 
-  // "auto" follows pointer hover. "peek" and "rest" are useful for
-  // deterministic screenshots and quick runtime inspection.
-  property string previewMode: "auto"
-  // Hover owns Peek locally in the overlay. Shelf and Focus are retained
+  // Hover owns Peek locally in the bar. Shelf and Focus are retained
   // service state so IPC, provider events, and every output agree on what is
   // open. The stock bar remains the owner of delegated popups.
   property string retainedMode: ""
@@ -72,7 +70,6 @@ Item {
   property var providerManifests: ({})
   property var providerDiagnostics: []
   property var quickAccessItems: []
-  property int providerRevision: 0
   property var eventActivity: null
   property bool eventActive: false
   property string selectedActivityKey: ""
@@ -83,9 +80,6 @@ Item {
     : (displayActivity && restPresentation(displayActivity) !== "hidden" ? displayActivity : null)
 
   readonly property string styleName: String(value("appearance", "style", "pill"))
-  readonly property real configuredHeight: Math.max(0, Number(value("appearance", "height", 0)) || 0)
-  readonly property real configuredCompactWidth: Math.max(0, Number(value("appearance", "compact_width", 0)) || 0)
-  readonly property real configuredPeekWidth: Math.max(0, Number(value("appearance", "peek_width", 0)) || 0)
   property string clockFormatOverride: ""
   readonly property string configuredClockFormat: String(value("appearance", "clock_format", "h:mm AP"))
   readonly property string clockFormat: clockFormatOverride !== ""
@@ -108,13 +102,7 @@ Item {
   readonly property string backgroundOverride: String(value("appearance", "background", ""))
   readonly property string borderOverride: String(value("appearance", "border", ""))
   readonly property bool customQmlAllowed: Boolean(value("appearance", "allow_custom_qml", true))
-  readonly property string restContent: {
-    if (userConfig && userConfig.layout && userConfig.layout.rest_content !== undefined)
-      return String(userConfig.layout.rest_content)
-    if (userConfig && userConfig.behavior && userConfig.behavior.rest_content !== undefined)
-      return String(userConfig.behavior.rest_content)
-    return String(value("layout", "rest_content", "clock"))
-  }
+  readonly property string restContent: String(value("layout", "rest_content", "clock"))
   readonly property real topOffset: Math.max(0, Number(value("placement", "top_offset", 0)) || 0)
   readonly property int collapseDelayMs: Math.max(0, Math.round(Number(value("behavior", "collapse_delay_ms", 95)) || 0))
   readonly property bool motionEnabled: Boolean(value("motion", "enabled", true))
@@ -128,20 +116,8 @@ Item {
     ? Math.max(0, Math.round(Number(value("motion", "content_ms", 150)) || 0)) : 0
   readonly property bool includeClock: Boolean(value("layout", "include_clock", true))
   readonly property int eventHoldMs: Math.max(250, Math.round(Number(value("behavior", "event_hold_ms", 4500)) || 4500))
-  readonly property bool autoFocusEvents: {
-    if (userConfig && userConfig.behavior && userConfig.behavior.auto_focus_events !== undefined)
-      return Boolean(userConfig.behavior.auto_focus_events)
-    if (userConfig && userConfig.behavior && userConfig.behavior.auto_expand !== undefined)
-      return Boolean(userConfig.behavior.auto_expand)
-    return Boolean(value("behavior", "auto_focus_events", false))
-  }
-  readonly property string keyboardTarget: {
-    if (userConfig && userConfig.behavior && userConfig.behavior.keyboard_target !== undefined)
-      return String(userConfig.behavior.keyboard_target)
-    if (userConfig && userConfig.behavior && userConfig.behavior.keyboard_shelf !== undefined)
-      return String(userConfig.behavior.keyboard_shelf)
-    return String(value("behavior", "keyboard_target", "peek"))
-  }
+  readonly property bool autoFocusEvents: Boolean(value("behavior", "auto_focus_events", false))
+  readonly property string keyboardTarget: String(value("behavior", "keyboard_target", "peek"))
   readonly property bool audioAdapterEnabled: Boolean(nestedValue("adapters", "audio", "enabled", true))
   readonly property int audioTransientHoldMs: {
     var configured = Number(nestedValue("adapters", "audio", "transient_hold_ms", 1600))
@@ -650,7 +626,7 @@ Item {
     var configured = value("layout", "peek", [
       "omarchy.menu", "omarchy.workspaces", "omarchy.indicators", "omarchy.tray",
       "omarchy.tailscale", "omarchy.bluetooth", "omarchy.network", "omarchy.audio",
-      "omarchy.monitor", "omarchy.keyboard-layout", "omarchy.system-update", "omarchy.power"
+      "omarchy.monitor", "omarchy.keyboard-layout", "omarchy.power"
     ])
     return Array.isArray(configured) ? configured.slice() : []
   }
@@ -725,8 +701,6 @@ Item {
     if (JSON.stringify(unsupported) !== JSON.stringify(unsupportedPeekIds)) unsupportedPeekIds = unsupported
     if (JSON.stringify(hidden) !== JSON.stringify(hiddenPeekIds)) hiddenPeekIds = hidden
   }
-
-  function refreshStockIcons() { refreshStockState() }
 
   function toggleStockPanel(pluginId) {
     var widget = stockWidget(pluginId)
@@ -864,7 +838,6 @@ Item {
     keyboardEntryActive = keyboardEntry === true
     activeShelf = String(shelfId || "")
     retainedMode = "shelf"
-    previewMode = "auto"
   }
 
   function openFocus(shelfId, keyboardEntry) {
@@ -874,7 +847,6 @@ Item {
     if (activeShelf === "activity" && !eventActive && currentActivity)
       selectedActivityKey = currentActivity.key
     retainedMode = "focus"
-    previewMode = "auto"
   }
 
   function openControls(keyboardEntry) {
@@ -882,7 +854,6 @@ Item {
     keyboardEntryActive = keyboardEntry === true
     activeShelf = "controls"
     retainedMode = "controls"
-    previewMode = "auto"
   }
 
   function openKeyboardPeek() {
@@ -893,7 +864,6 @@ Item {
     keyboardEntryActive = true
     activeShelf = ""
     retainedMode = "peek"
-    previewMode = "auto"
     return true
   }
 
@@ -901,12 +871,6 @@ Item {
     retainedMode = ""
     activeShelf = ""
     keyboardEntryActive = false
-  }
-
-  function toggleShelf(shelfId) {
-    shelfId = String(shelfId || "")
-    if (retainedMode !== "" && activeShelf === shelfId) closeRetained()
-    else openShelf(shelfId)
   }
 
   function keyboardToggle() {
@@ -1028,14 +992,11 @@ Item {
   }
 
   function presentationEntryPoints(candidate) {
-    var entryPoints = candidate && candidate.entryPoints ? candidate.entryPoints : ({})
-    var presentations = []
-    var modes = ["Minimal", "Compact", "Expanded", "Event"]
-    for (var index = 0; index < modes.length; index++) {
-      var key = "omarchyIsland" + modes[index]
-      if (entryPoints[key]) presentations.push(modes[index].toLowerCase())
-    }
-    return presentations
+    return ProviderContract.presentationEntryPoints(candidate)
+  }
+
+  function islandRegistrationError(candidate, pluginId) {
+    return ProviderContract.registrationError(candidate, pluginId)
   }
 
   function providerEntryPointUrl(candidate, key) {
@@ -1228,7 +1189,21 @@ Item {
     if (expiresAt > 0 && expiresAt < 100000000000) expiresAt *= 1000
     var leaseMs = Math.max(0, Number(activity.leaseMs) || 0)
     activity.expiresAt = expiresAt > 0 ? expiresAt : (leaseMs > 0 ? activity.updatedAt + leaseMs : 0)
-    activity.actions = Array.isArray(activity.actions) ? activity.actions : []
+    var sourceActions = Array.isArray(activity.actions) ? activity.actions : []
+    var normalizedActions = []
+    var seenActions = ({})
+    for (var actionIndex = 0; actionIndex < sourceActions.length; actionIndex++) {
+      var sourceAction = sourceActions[actionIndex]
+      if (!sourceAction || typeof sourceAction !== "object") continue
+      var actionId = String(sourceAction.id || "")
+      if (actionId === "" || seenActions[actionId]) continue
+      var normalizedAction = copyObject(sourceAction)
+      normalizedAction.id = actionId
+      normalizedAction.label = String(sourceAction.label || actionId)
+      normalizedActions.push(normalizedAction)
+      seenActions[actionId] = true
+    }
+    activity.actions = normalizedActions
     var primaryAction = String(activity.primaryAction || "")
     activity.primaryAction = activity.actions.some(function(action) {
       return action && String(action.id || "") === primaryAction
@@ -1260,7 +1235,6 @@ Item {
     }
     next.push(normalized)
     activities = next
-    providerRevision++
     var eventId = normalized.event ? String(normalized.event.id || "") : ""
     var previousEventId = previous && previous.event ? String(previous.event.id || "") : ""
     if (eventId && eventId !== previousEventId) presentEvent(normalized)
@@ -1287,19 +1261,21 @@ Item {
     activities = next
     if (selectedActivityKey === key) selectedActivityKey = ""
     if (eventActivity && eventActivity.key === key) clearEvent()
-    providerRevision++
     Qt.callLater(refreshStockState)
     return true
   }
 
   function withdrawProvider(providerId) {
+    var requestedProviderId = String(providerId)
     var selectedBelongsToProvider = false
     for (var index = 0; index < activities.length; index++)
       if (activities[index].key === selectedActivityKey
-          && activities[index].providerId === String(providerId)) selectedBelongsToProvider = true
-    activities = activities.filter(function(activity) { return activity.providerId !== String(providerId) })
+          && activities[index].providerId === requestedProviderId) selectedBelongsToProvider = true
+    activities = activities.filter(function(activity) {
+      return activity.providerId !== requestedProviderId
+    })
     if (selectedBelongsToProvider) selectedActivityKey = ""
-    providerRevision++
+    if (eventActivity && eventActivity.providerId === requestedProviderId) clearEvent()
     Qt.callLater(refreshStockState)
   }
 
@@ -1312,7 +1288,9 @@ Item {
     activities = next
     var selectedStillActive = next.some(function(activity) { return activity.key === selectedActivityKey })
     if (!selectedStillActive) selectedActivityKey = ""
-    providerRevision++
+    if (eventActivity && !next.some(function(activity) {
+      return activity.key === eventActivity.key
+    })) clearEvent()
     Qt.callLater(refreshStockState)
     return true
   }
@@ -1365,10 +1343,40 @@ Item {
   }
 
   function routeAction(providerId, activityId, actionId) {
-    var provider = providerObjects[String(providerId)]
+    var requestedProviderId = String(providerId || "")
+    var requestedActivityId = String(activityId || "")
+    var requestedActionId = String(actionId || "")
+    var key = activityKey(requestedProviderId, requestedActivityId)
+    var activity = null
+    for (var index = 0; index < activities.length; index++) {
+      if (activities[index].key !== key) continue
+      activity = activities[index]
+      break
+    }
+    if (!activity || requestedActionId === "" || !activity.actions.some(function(action) {
+      return action && String(action.id || "") === requestedActionId
+    })) return false
+
+    var provider = providerObjects[requestedProviderId]
     if (!provider || typeof provider.onAction !== "function") return false
-    provider.onAction(String(activityId), String(actionId))
-    return true
+    try {
+      return provider.onAction(requestedActivityId, requestedActionId) !== false
+    } catch (error) {
+      console.warn("Omarchy Island: provider action failed for " + key + ":" + requestedActionId
+        + ": " + error)
+      for (var diagnosticIndex = 0;
+           diagnosticIndex < providerDiagnostics.length;
+           diagnosticIndex++) {
+        if (providerDiagnostics[diagnosticIndex].providerId !== requestedProviderId) continue
+        var diagnostics = providerDiagnostics.slice()
+        var diagnostic = copyObject(diagnostics[diagnosticIndex])
+        diagnostic.error = "action " + requestedActionId + " failed: " + String(error)
+        diagnostics[diagnosticIndex] = diagnostic
+        providerDiagnostics = diagnostics
+        break
+      }
+      return false
+    }
   }
 
   function activateActivity(activity, keyboardEntry) {
@@ -1418,7 +1426,8 @@ Item {
         || pluginRegistry.isEnabled(installedId)
       var installedProviderEntryPoint = installedCandidate && installedCandidate.entryPoints
         ? String(installedCandidate.entryPoints.omarchyIslandProvider || "") : ""
-      if (installedMetadata && installedEnabled && installedProviderEntryPoint)
+      if (installedMetadata && installedEnabled && installedProviderEntryPoint
+          && islandRegistrationError(installedCandidate, installedId) === "")
         enabledExternalProviders[String(installedMetadata.id || installedId)] = true
     }
 
@@ -1430,6 +1439,22 @@ Item {
       if (!enabledExternalProviders[bundledId] || !bundledOwner
           || !bundledOwner.__isBundledIslandProvider) continue
       unloadProvider(bundledId)
+    }
+
+    // Remove stale external ownership before loading a bundled fallback. This
+    // keeps failback within the same registry reconciliation pass.
+    for (var existingId in providerObjects) {
+      var existingManifest = providerManifests[existingId]
+      if (existingManifest && existingManifest.__isBundledIslandProvider) continue
+      var existingPluginId = existingManifest ? String(existingManifest.id || "") : ""
+      var existingCandidate = existingPluginId ? installed[existingPluginId] : null
+      var existingEnabled = existingCandidate
+        && (typeof pluginRegistry.isEnabled !== "function"
+          || pluginRegistry.isEnabled(existingPluginId))
+      var existingValid = existingCandidate
+        && islandRegistrationError(existingCandidate, existingPluginId) === ""
+      if (existingEnabled && existingValid && !providerDisabled(existingId)) continue
+      unloadProvider(existingId)
     }
 
     for (var pluginId in installed) {
@@ -1460,6 +1485,12 @@ Item {
       }
       diagnostics.push(diagnostic)
       if (!enabled) continue
+      var registrationError = islandRegistrationError(candidate, pluginId)
+      if (registrationError !== "") {
+        diagnostic.status = "failed"
+        diagnostic.error = registrationError
+        continue
+      }
       if (access) {
         accessItems.push({
           id: String(access.id || pluginId),
@@ -1533,15 +1564,6 @@ Item {
         defaultDiagnostic, "bundled provider")
     }
 
-    for (var existingId in providerObjects) {
-      var sourceManifest = providerManifests[existingId]
-      var sourceId = sourceManifest ? String(sourceManifest.id || "") : ""
-      var sourceEnabled = sourceManifest && sourceManifest.__isBundledIslandProvider
-        ? true : (sourceId && installed[sourceId]
-          && (typeof pluginRegistry.isEnabled !== "function" || pluginRegistry.isEnabled(sourceId)))
-      if (!providerDisabled(existingId) && sourceEnabled) continue
-      unloadProvider(existingId)
-    }
     if (JSON.stringify(accessItems) !== JSON.stringify(quickAccessItems)) quickAccessItems = accessItems
     diagnostics.sort(function(a, b) { return a.pluginId.localeCompare(b.pluginId) })
     if (JSON.stringify(diagnostics) !== JSON.stringify(providerDiagnostics))
@@ -1569,17 +1591,16 @@ Item {
   function inspectObject() {
     return {
       plugin: manifest && manifest.id ? String(manifest.id) : "rblalock.omarchy-island",
-      previewMode: previewMode,
       retainedMode: retainedMode,
       activeShelf: activeShelf,
       keyboardEntryActive: keyboardEntryActive,
       keyboardPeekActive: keyboardPeekActive,
       lastAction: lastAction,
       lastActionAccepted: lastActionAccepted,
-      overlay: {
-        enabled: overlayEnabled,
-        ready: overlayLoader.item !== null,
-        status: Number(overlayLoader.status),
+      retainedWindow: {
+        enabled: retainedWindowEnabled,
+        ready: retainedWindowLoader.item !== null,
+        status: Number(retainedWindowLoader.status),
         barHosted: barHosted,
         barHostCount: barHosts.length,
         hostStates: barHosts.map(function(host) {
@@ -1592,9 +1613,6 @@ Item {
       configError: configError,
       style: styleName,
       resolved: {
-        height: configuredHeight,
-        compactWidth: configuredCompactWidth,
-        peekWidth: configuredPeekWidth,
         shelfWidth: configuredShelfWidth,
         shelfHeight: configuredShelfHeight,
         focusHeight: configuredFocusHeight,
@@ -1772,8 +1790,6 @@ Item {
     target: "omarchy-island"
 
     function peek() : string { return root.openKeyboardPeek() ? "peek" : "unavailable" }
-    function rest() : string { root.closeRetained(); root.previewMode = "rest"; return "rest" }
-    function followPointer() : string { root.closeRetained(); root.previewMode = "auto"; return "auto" }
     function shelf(shelfId: string) : string { root.openShelf(shelfId); return "shelf" }
     function focus(shelfId: string) : string { root.openFocus(shelfId); return "focus" }
     function close() : string { root.closeRetained(); return "closed" }
@@ -1806,9 +1822,9 @@ Item {
   }
 
   Loader {
-    id: overlayLoader
-    active: root.overlayEnabled
-    source: Qt.resolvedUrl("IslandOverlay.qml")
+    id: retainedWindowLoader
+    active: root.retainedWindowEnabled
+    source: Qt.resolvedUrl("RetainedWindow.qml")
     onLoaded: {
       if (!item) return
       item.island = root
