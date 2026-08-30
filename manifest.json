@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "rblalock.omarchy-island",
+  "name": "Omarchy Island",
+  "version": "0.1.0",
+  "author": "Omarchy Island contributors",
+  "license": "MIT",
+  "description": "A morphing bar widget for Omarchy controls, panels, and plugin-native activity views.",
+  "kinds": [
+    "service",
+    "bar-widget"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "service": "Service.qml",
+    "barWidget": "IslandBarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Omarchy Island",
+    "description": "A morphing surface for built-in adapters and Island-aware plugins.",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "center"
+  }
+}

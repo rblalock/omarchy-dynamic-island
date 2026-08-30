@@ -1,0 +1,6 @@
+#!/bin/bash
+
+set -euo pipefail
+
+omarchy plugin disable rblalock.omarchy-island
+echo "Omarchy Island development copy is disabled; the stock bar remains installed."

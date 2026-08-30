@@ -1,0 +1,4 @@
+interface:
+  display_name: "Omarchy Island"
+  short_description: "Build and validate Omarchy Island integrations"
+  default_prompt: "Use $omarchy-island to add or update an Omarchy Island integration in this repository."

@@ -1,0 +1,68 @@
+#!/bin/bash
+
+set -euo pipefail
+
+repo_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
+plugin_root=${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/plugins
+target=$plugin_root/rblalock.omarchy-island
+marker=.omarchy-island-local-source
+
+"$repo_dir/scripts/check"
+mkdir -p "$plugin_root"
+
+if [[ -L $target ]]; then
+  installed_source=$(readlink -f -- "$target")
+  if [[ $installed_source != "$repo_dir" ]]; then
+    echo "Refusing to replace plugin symlink: $target -> $installed_source" >&2
+    exit 1
+  fi
+elif [[ -e $target ]]; then
+  if [[ ! -f $target/$marker ]] || [[ $(<"$target/$marker") != "$repo_dir" ]]; then
+    echo "Refusing to replace unmanaged plugin path: $target" >&2
+    exit 1
+  fi
+fi
+
+# Match a normal Omarchy install: validation and the dynamic bar-widget loader
+# operate on a self-contained real directory, not a checkout symlink. Qt caches
+# a plugin directory's QML filenames for the shell process lifetime, so adding
+# or renaming an entry-point file during development may require one shell
+# restart even though edits to existing files hot-reload normally.
+stage=$(mktemp -d "$plugin_root/.rblalock.omarchy-island.XXXXXX")
+old_target=""
+install_complete=0
+cleanup() {
+  [[ -d ${stage:-} ]] && rm -rf -- "$stage"
+  if (( ! install_complete )) && [[ -n $old_target && -e $old_target && ! -e $target ]]; then
+    mv -- "$old_target" "$target"
+  fi
+}
+trap cleanup EXIT
+
+cp -a -- \
+  "$repo_dir/manifest.json" \
+  "$repo_dir/Service.qml" \
+  "$repo_dir/IslandOverlay.qml" \
+  "$repo_dir/IslandBarWidget.qml" \
+  "$repo_dir/components" \
+  "$repo_dir/config" \
+  "$repo_dir/providers" \
+  "$repo_dir/lib" \
+  "$stage/"
+printf '%s\n' "$repo_dir" >"$stage/$marker"
+omarchy-plugin-validate "$stage"
+
+if [[ -L $target ]]; then
+  unlink -- "$target"
+elif [[ -d $target ]]; then
+  old_target="$plugin_root/.rblalock.omarchy-island.previous.$$"
+  mv -- "$target" "$old_target"
+fi
+mv -- "$stage" "$target"
+stage=""
+install_complete=1
+[[ -z $old_target ]] || rm -rf -- "$old_target"
+
+omarchy-shell shell rescanPlugins >/dev/null
+omarchy plugin enable rblalock.omarchy-island
+echo "Omarchy Island development copy is enabled from $repo_dir"

@@ -1,0 +1,6 @@
+#!/bin/bash
+
+set -euo pipefail
+
+omarchy plugin disable rblalock.omarchy-island-osd
+echo "Omarchy Island OSD companion is disabled; stock omarchy.osd is restored"

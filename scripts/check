@@ -1,0 +1,122 @@
+#!/bin/bash
+
+set -euo pipefail
+
+repo_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
+harness_dir=$(mktemp -d "${TMPDIR:-/tmp}/omarchy-island-check.XXXXXXXX")
+
+cleanup() {
+  [[ -n ${harness_dir:-} && -d $harness_dir && $harness_dir == */omarchy-island-check.* ]] || return 0
+  rm -rf -- "$harness_dir"
+}
+trap cleanup EXIT
+
+cd -- "$repo_dir"
+
+"$repo_dir/scripts/audit-public-tree" --tree-only
+
+run_provider_harness() {
+  local source_dir=$1
+  local import_dir=$2
+  local shell_source=$3
+  local shell_name=$4
+  local success_marker=$5
+  local output
+  local status
+
+  mkdir -p "$harness_dir/$import_dir"
+  cp "$source_dir"/*.qml "$harness_dir/$import_dir/"
+  if compgen -G "$source_dir/*.js" >/dev/null; then
+    cp "$source_dir"/*.js "$harness_dir/$import_dir/"
+  fi
+  cp "$shell_source" "$harness_dir/$shell_name"
+
+  set +e
+  output=$(timeout 8s env \
+    QT_QPA_PLATFORM=offscreen \
+    XDG_CONFIG_HOME="$harness_dir/config" \
+    XDG_STATE_HOME="$harness_dir/state" \
+    quickshell --no-color -p "$harness_dir/$shell_name" 2>&1)
+  status=$?
+  set -e
+  printf '%s\n' "$output"
+  ((status == 0)) || return "$status"
+  grep -F "$success_marker" <<<"$output" >/dev/null
+}
+
+omarchy-plugin-validate "$repo_dir"
+
+mapfile -t public_manifests < <(find . -path './.git' -prune -o -name manifest.json -type f -print | sort)
+if (( ${#public_manifests[@]} != 1 )) || [[ ${public_manifests[0]} != ./manifest.json ]]; then
+  echo "The public repository must contain exactly one root manifest.json" >&2
+  printf '  %s\n' "${public_manifests[@]}" >&2
+  exit 1
+fi
+test -f README.md
+test -f LICENSE
+if find . -path './.git' -prune -o -type l -print -quit | grep -q .; then
+  echo "Public plugin sources must not contain symlinks" >&2
+  exit 1
+fi
+
+mkdir -p "$harness_dir/osd-plugin"
+cp companions/osd/OsdBridge.qml companions/osd/OsdFallback.qml \
+  companions/osd/OsdModel.js "$harness_dir/osd-plugin/"
+cp companions/osd/manifest.example.json "$harness_dir/osd-plugin/manifest.json"
+omarchy-plugin-validate "$harness_dir/osd-plugin"
+
+test -f .agents/skills/omarchy-island/SKILL.md
+test -f .agents/skills/omarchy-island/references/provider-api.md
+rg -q '^name: omarchy-island$' .agents/skills/omarchy-island/SKILL.md
+
+if rg -n 'ClockButton|ActivityPill|VolumePill|DisplayPill|ProxyButton' IslandOverlay.qml; then
+  echo "IslandOverlay.qml must not render a duplicate Rest, Peek, or transient surface" >&2
+  exit 1
+fi
+
+mapfile -t qml_files < <(find . -path './.git' -prune -o -name '*.qml' -type f -print | sort)
+qmllint -I /usr/share/omarchy/shell "${qml_files[@]}"
+
+QT_QPA_PLATFORM=offscreen /usr/lib/qt6/bin/qmltestrunner \
+  -input tests/qml \
+  -import /usr/share/omarchy/shell \
+  -import "$repo_dir"
+
+mkdir -p "$harness_dir/plugin" "$harness_dir/config" "$harness_dir/state"
+mkdir -p "$harness_dir/provider"
+mkdir -p "$harness_dir/config/omarchy"
+cp -a /usr/share/omarchy/shell/Commons "$harness_dir/Commons"
+cp -a /usr/share/omarchy/shell/Ui "$harness_dir/Ui"
+cp -a Service.qml IslandOverlay.qml IslandBarWidget.qml components config lib providers "$harness_dir/plugin/"
+cp tests/runtime/shell.qml "$harness_dir/shell.qml"
+cp tests/fixtures/island.toml "$harness_dir/config/omarchy/island.toml"
+cp tests/fixtures/provider/*.qml "$harness_dir/provider/"
+
+set +e
+harness_output=$(timeout 8s env \
+  QT_QPA_PLATFORM=offscreen \
+  XDG_CONFIG_HOME="$harness_dir/config" \
+  XDG_STATE_HOME="$harness_dir/state" \
+  quickshell --no-color -p "$harness_dir/shell.qml" 2>&1)
+harness_status=$?
+set -e
+printf '%s\n' "$harness_output"
+((harness_status == 0)) || exit "$harness_status"
+grep -F 'HARNESS_OK' <<<"$harness_output" >/dev/null
+
+run_provider_harness providers/now-playing now_playing \
+  tests/runtime/now-playing.qml now-playing-shell.qml NOW_PLAYING_OK
+run_provider_harness providers/reminders reminders \
+  tests/runtime/reminders.qml reminders-shell.qml REMINDERS_OK
+run_provider_harness providers/screen-recording screen_recording \
+  tests/runtime/screen-recording.qml screen-recording-shell.qml SCREEN_RECORDING_OK
+run_provider_harness providers/system-update system_update \
+  tests/runtime/system-update.qml system-update-shell.qml SYSTEM_UPDATE_OK
+run_provider_harness tests/fixtures/provider provider \
+  tests/runtime/bundled-providers.qml bundled-providers-shell.qml BUNDLED_PROVIDERS_OK
+run_provider_harness tests/fixtures/provider provider \
+  tests/runtime/provider-conformance.qml provider-conformance-shell.qml PROVIDER_CONFORMANCE_OK
+run_provider_harness companions/osd osd_companion \
+  tests/runtime/osd-companion.qml osd-companion-shell.qml OSD_COMPANION_OK
+
+echo "Omarchy Island checks passed"

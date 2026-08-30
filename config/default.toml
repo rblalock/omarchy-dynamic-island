@@ -1,0 +1,58 @@
+version = 1
+
+[placement]
+top_offset = 0
+
+[appearance]
+style = "system"
+height = 0
+compact_width = 0
+peek_width = 0
+shelf_width = 430
+shelf_height = 0
+focus_height = 224
+controls_height = 318
+corner_radius = "system"
+clock_format = "h:mm AP"
+background = ""
+border = ""
+allow_custom_qml = true
+
+[behavior]
+collapse_delay_ms = 95
+event_hold_ms = 4500
+auto_focus_events = false
+keyboard_target = "peek"
+
+[motion]
+enabled = true
+reduced = false
+expand_ms = 260
+collapse_ms = 180
+content_ms = 150
+
+[layout]
+include_clock = true
+rest_content = "auto"
+peek = ["omarchy.menu", "omarchy.workspaces", "omarchy.tray", "omarchy.indicators", "omarchy.tailscale", "omarchy.bluetooth", "omarchy.network", "omarchy.audio", "omarchy.monitor", "omarchy.keyboard-layout", "omarchy.system-update", "omarchy.power"]
+
+[workspaces]
+count = 10
+
+[adapters.audio]
+enabled = true
+transient_hold_ms = 1600
+scroll_step_percent = 5
+
+[adapters.display]
+enabled = true
+transient_hold_ms = 1600
+scroll_step_percent = 5
+
+[providers]
+order = []
+pinned = []
+disabled = []
+custom_qml_disabled = []
+
+[providers.rest]

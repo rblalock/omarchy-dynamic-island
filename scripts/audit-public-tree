@@ -1,0 +1,64 @@
+#!/bin/bash
+
+set -euo pipefail
+
+repo_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
+cd -- "$repo_dir"
+
+files=()
+while IFS= read -r -d '' path; do
+  [[ -f $path ]] && files+=("$path")
+done < <(git ls-files -co --exclude-standard -z)
+
+content_files=()
+for path in "${files[@]}"; do
+  [[ $path == scripts/audit-public-tree ]] || content_files+=("$path")
+done
+
+fail() {
+  echo "Public tree audit failed: $*" >&2
+  exit 1
+}
+
+if (( ${#files[@]} == 0 )); then
+  fail "no publishable files found"
+fi
+
+mapfile -t sensitive_names < <(printf '%s\n' "${files[@]}" | rg -i \
+  '(^|/)([.]env|id_rsa|id_ed25519|credentials|secrets?|tokens?|.*[.]pem|.*[.]key|.*[.]p12|.*[.]pfx)([.]|$|/)') || true
+(( ${#sensitive_names[@]} == 0 )) \
+  || fail "sensitive-looking filenames: ${sensitive_names[*]}"
+
+mapfile -t local_identity_files < <(rg -Il -i \
+  -e '/home/' \
+  -e '/run/media/' \
+  -e '[A-Z0-9._%+-]+@[A-Z0-9.-]+[.][A-Z]{2,}' \
+  -- "${content_files[@]}") || true
+(( ${#local_identity_files[@]} == 0 )) \
+  || fail "local path or email found in: ${local_identity_files[*]}"
+
+mapfile -t secret_files < <(rg -Il -i \
+  -e 'BEGIN (RSA |OPENSSH |EC |DSA )?PRIVATE KEY' \
+  -e 'github_pat_[A-Za-z0-9_]+' \
+  -e 'gh[pousr]_[A-Za-z0-9]{20,}' \
+  -e 'sk-[A-Za-z0-9_-]{20,}' \
+  -e 'xox[baprs]-[A-Za-z0-9-]{10,}' \
+  -e 'AKIA[0-9A-Z]{16}' \
+  -- "${content_files[@]}") || true
+(( ${#secret_files[@]} == 0 )) \
+  || fail "secret-like content found in: ${secret_files[*]}"
+
+for path in "${files[@]}"; do
+  [[ -f $path ]] || continue
+  size=$(stat -c '%s' -- "$path")
+  (( size <= 10 * 1024 * 1024 )) || fail "file exceeds 10 MiB: $path"
+done
+
+if [[ ${1:-} != "--tree-only" ]] && git rev-parse --verify HEAD >/dev/null 2>&1; then
+  mapfile -t public_emails < <(git log HEAD --format='%ae%n%ce' \
+    | sort -u | rg -v '^[0-9]+[+]rblalock@users[.]noreply[.]github[.]com$') || true
+  (( ${#public_emails[@]} == 0 )) \
+    || fail "commit history contains a non-private email address"
+fi
+
+echo "Public tree audit passed"

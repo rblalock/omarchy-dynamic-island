@@ -1,0 +1,70 @@
+#!/bin/bash
+
+set -euo pipefail
+
+repo_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
+source_dir=$repo_dir/companions/osd
+plugin_id=rblalock.omarchy-island-osd
+plugin_root=${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/plugins
+target=$plugin_root/$plugin_id
+marker=.omarchy-island-osd-local-source
+
+omarchy-plugin-validate "$repo_dir"
+mkdir -p "$plugin_root"
+
+if [[ -L $target ]]; then
+  installed_source=$(readlink -f -- "$target")
+  if [[ $installed_source != "$source_dir" ]]; then
+    echo "Refusing to replace plugin symlink: $target -> $installed_source" >&2
+    exit 1
+  fi
+elif [[ -e $target ]]; then
+  if [[ ! -f $target/$marker ]] || [[ $(<"$target/$marker") != "$source_dir" ]]; then
+    echo "Refusing to replace unmanaged plugin path: $target" >&2
+    exit 1
+  fi
+fi
+
+stage=$(mktemp -d "$plugin_root/.$plugin_id.XXXXXXXX")
+old_target=""
+install_complete=0
+cleanup() {
+  [[ -d ${stage:-} ]] && rm -rf -- "$stage"
+  if (( ! install_complete )) && [[ -n $old_target && -e $old_target && ! -e $target ]]; then
+    mv -- "$old_target" "$target"
+  fi
+}
+trap cleanup EXIT
+
+cp -a -- "$source_dir/OsdBridge.qml" "$source_dir/OsdFallback.qml" \
+  "$source_dir/OsdModel.js" "$stage/"
+cp -a -- "$source_dir/manifest.example.json" "$stage/manifest.json"
+printf '%s\n' "$source_dir" >"$stage/$marker"
+omarchy-plugin-validate "$stage"
+
+if [[ -L $target ]]; then
+  unlink -- "$target"
+elif [[ -d $target ]]; then
+  old_target="$plugin_root/.$plugin_id.previous.$$"
+  mv -- "$target" "$old_target"
+fi
+mv -- "$stage" "$target"
+stage=""
+install_complete=1
+[[ -z $old_target ]] || rm -rf -- "$old_target"
+
+omarchy-shell shell rescanPlugins >/dev/null
+plugin_discovered=0
+for _attempt in {1..30}; do
+  if omarchy plugin list | awk 'NR > 1 { print $1 }' | grep -Fxq "$plugin_id"; then
+    plugin_discovered=1
+    break
+  fi
+  sleep 0.1
+done
+if (( ! plugin_discovered )); then
+  echo "Plugin registry did not discover $plugin_id after rescan" >&2
+  exit 1
+fi
+omarchy plugin enable "$plugin_id"
+echo "Omarchy Island OSD companion is enabled; disabling it restores stock omarchy.osd"

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "rblalock.omarchy-island-osd",
+  "name": "Omarchy Island OSD",
+  "version": "0.1.0",
+  "author": "Omarchy Island contributors",
+  "license": "MIT",
+  "description": "Routes Omarchy on-screen display events into Omarchy Island with a safe stock-style fallback.",
+  "kinds": [
+    "panel"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "panel": "OsdBridge.qml"
+  },
+  "omarchy": {
+    "clonedFrom": "omarchy.osd"
+  }
+}
