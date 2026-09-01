@@ -5,12 +5,16 @@ existing bar. It keeps the stock bar intact, expands supported controls on
 hover or from the keyboard, and presents ongoing desktop activity without
 adding another shell process or panel system.
 
+[![Omarchy Island expanded inside the Omarchy bar](preview.png)](https://x.com/rblalock/status/2093665476245135398)
+
+[Watch the full demo on X](https://x.com/rblalock/status/2093665476245135398).
+
 ## Requirements
 
 - Omarchy 4 with the Quattro shell plugin host
 - A Nerd Font supplied by the active Omarchy theme
 
-The initial release is tested on Omarchy 4.0.1. Its bundled activities reuse
+The initial release is tested on Omarchy 4.0.2. Its bundled activities reuse
 Omarchy's existing media, reminder, screen-recording, and update facilities;
 they do not install another scheduler, recorder, updater, or media service.
 
@@ -19,6 +23,18 @@ they do not install another scheduler, recorder, updater, or media service.
 ```bash
 omarchy plugin add https://github.com/rblalock/omarchy-dynamic-island.git --enable
 ```
+
+Island is ready immediately; no additional setup is required. For
+keyboard-first access, add this optional Hyprland binding through your normal
+user configuration:
+
+```lua
+o.bind("SUPER + R", "Omarchy Island", "omarchy-shell omarchy-island keyboard")
+```
+
+Island never edits Hyprland or Omarchy configuration during installation. You
+can also enable the [optional OSD companion](#optional-osd-companion) or adjust
+Island's [configuration](docs/configuration.md).
 
 That single command installs and enables the complete default experience:
 
@@ -44,15 +60,6 @@ bar; retained actions target the focused monitor.
 - Press arrows or `h/j/k/l` after keyboard entry to navigate.
 - Press `Enter` or `Space` to activate and `Escape` to close.
 - Click the clock to open the stock calendar; right-click it to cycle formats.
-
-The recommended optional Hyprland binding is:
-
-```lua
-o.bind("SUPER + R", "Omarchy Island", "omarchy-shell omarchy-island keyboard")
-```
-
-Add it through your normal user Hyprland configuration. The plugin never edits
-Hyprland or Omarchy configuration during installation.
 
 ## Configure
 
