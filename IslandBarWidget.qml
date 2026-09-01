@@ -187,8 +187,19 @@ Ui.BarWidget {
     return false
   }
 
+  function activateKeyboardIndex(index) {
+    var ids = keyboardIds()
+    var requested = Number(index)
+    if (!Number.isInteger(requested) || requested < 0 || requested >= ids.length) return false
+    keyboardSelectionId = ids[requested]
+    return activateKeyboardSelection()
+  }
+
   function handleKeyboardKey(key, modifiers) {
     if (!keyboardInventory) return false
+    if (key >= Qt.Key_1 && key <= Qt.Key_9)
+      return activateKeyboardIndex(key - Qt.Key_1)
+    if (key === Qt.Key_0) return activateKeyboardIndex(9)
     if (key === Qt.Key_Left || key === Qt.Key_Up || key === Qt.Key_H || key === Qt.Key_K)
       return moveKeyboardSelection(-1)
     if (key === Qt.Key_Right || key === Qt.Key_Down || key === Qt.Key_J || key === Qt.Key_L

@@ -529,6 +529,29 @@ ShellRoot {
         Qt.exit(14)
         return
       }
+      if (!service.handleBarKeyboardKey(Qt.Key_2, Qt.NoModifier)
+          || harness.summonedPlugin !== "test.panel" || service.retainedMode !== "") {
+        console.error("HARNESS_FAIL dynamic keyboard index activation", service.inspectJson())
+        Qt.exit(14)
+        return
+      }
+      service.keyboardToggle()
+      if (!service.keyboardPeekActive
+          || service.handleBarKeyboardKey(Qt.Key_0, Qt.NoModifier) !== true
+          || service.retainedMode !== "focus" || service.activeShelf !== "audio"
+          || !service.keyboardEntryActive) {
+        console.error("HARNESS_FAIL tenth keyboard index activation", service.inspectJson())
+        Qt.exit(14)
+        return
+      }
+      service.closeRetained()
+      service.keyboardToggle()
+      if (!service.keyboardPeekActive
+          || service.handleBarKeyboardKey(Qt.Key_0, Qt.NoModifier) !== true) {
+        console.error("HARNESS_FAIL keyboard index re-entry", service.inspectJson())
+        Qt.exit(14)
+        return
+      }
       service.keyboardToggle()
       if (service.retainedMode !== "" || service.keyboardEntryActive
           || service.keyboardPeekActive || hostedIsland.keyboardInventory

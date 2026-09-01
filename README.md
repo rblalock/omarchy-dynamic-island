@@ -9,6 +9,33 @@ adding another shell process or panel system.
 
 [Watch the full demo on X](https://x.com/rblalock/status/2093665476245135398).
 
+## Features
+
+- 🏝️ **One movable bar widget:** lives inside the stock Omarchy bar, inherits
+  its transparency, and appears on every connected monitor.
+- ⚡ **Morphing interface:** moves between a minimal Rest state, horizontal
+  Peek, transient feedback, and focused details without adding another bar.
+- ⌨️ **Keyboard-first control:** open it from a Hyprland shortcut, navigate with
+  arrows or `h/j/k/l`, and activate with `Enter` or `Space`.
+- 🔢 **Dynamic number shortcuts:** `1` through `9` activate the first nine Peek
+  items and `0` activates the tenth, always following the current visible order.
+- 🖱️ **Stock pointer behavior:** hover to reveal, click to open, right-click for
+  supported secondary actions, and scroll over audio or display to adjust it.
+- 🎛️ **Omarchy controls in one place:** workspaces, tray, status indicators,
+  Tailscale, Bluetooth, network, audio, display, power, clock, and calendar
+  retain their established Omarchy actions and panels when available.
+- 🎵 **Live activities:** Now Playing progress, reminder countdowns,
+  screen-recording state, and system-update availability can take over Rest
+  without hiding the other controls.
+- 🧩 **Plugin-aware by design:** enabled plugins can register quick access or
+  publish semantic activities, with declarative fallback and diagnostics owned
+  by Island.
+- 🎨 **Themeable and configurable:** follows Omarchy styling by default and
+  supports optional TOML overrides for appearance, motion, inventory, ordering,
+  and providers.
+- 📣 **Optional OSD companion:** volume, brightness, and other stock feedback
+  can route through Island without changing the default installation behavior.
+
 ## Requirements
 
 - Omarchy 4 with the Quattro shell plugin host
@@ -36,18 +63,6 @@ Island never edits Hyprland or Omarchy configuration during installation. You
 can also enable the [optional OSD companion](#optional-osd-companion) or adjust
 Island's [configuration](docs/configuration.md).
 
-That single command installs and enables the complete default experience:
-
-- Rest clock with calendar and clock-format actions
-- Hover Peek with supported system controls
-- Workspaces, tray, and status detail views
-- Audio and display controls with transient feedback
-- Now Playing with real playback progress
-- Reminder countdowns backed by Omarchy reminders
-- Screen-recording status and stock click-to-stop behavior
-- System-update availability with the stock update launcher
-- Third-party Island provider discovery and diagnostics
-
 The widget starts in the center section and can be dragged or moved like any
 other Omarchy bar widget. It appears on every monitor where Omarchy renders its
 bar; retained actions target the focused monitor.
@@ -58,6 +73,8 @@ bar; retained actions target the focused monitor.
 - Click a compact item to invoke its normal action or open its detail.
 - Use the mouse wheel over audio or display to adjust it.
 - Press arrows or `h/j/k/l` after keyboard entry to navigate.
+- Press `1` through `9` to activate the corresponding Peek item; press `0` for
+  the tenth. The mapping follows the current displayed order.
 - Press `Enter` or `Space` to activate and `Escape` to close.
 - Click the clock to open the stock calendar; right-click it to cycle formats.
 
