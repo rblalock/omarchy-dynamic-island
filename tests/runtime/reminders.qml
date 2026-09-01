@@ -112,12 +112,50 @@ ShellRoot {
         Qt.exit(44)
         return
       }
+
+      var boundedInput = []
+      var longLabel = ""
+      for (var labelIndex = 0; labelIndex < provider.maxReminderLabelChars + 20; labelIndex++)
+        longLabel += "x"
+      for (var reminderIndex = 0; reminderIndex < provider.maxReminderCount + 1; reminderIndex++) {
+        boundedInput.push({
+          unit: "unit-" + reminderIndex,
+          timer: "timer-" + reminderIndex,
+          label: reminderIndex === 0 ? longLabel : "Reminder " + reminderIndex,
+          minutes: reminderIndex === 1 ? "invalid" : reminderIndex,
+          at: now + reminderIndex + 1,
+          atTime: "12:00",
+          ignored: longLabel
+        })
+      }
+      provider.acceptData({ reminders: boundedInput })
+      activity = harness.publishedActivity
+      var boundedReminder = activity && activity.data ? activity.data.reminders[0] : null
+      if (!boundedReminder || activity.data.reminders.length !== provider.maxReminderCount
+          || boundedReminder.label.length !== provider.maxReminderLabelChars
+          || boundedReminder.ignored !== undefined
+          || provider.normalizedReminder({ minutes: "invalid", at: "invalid" }).minutes !== 0
+          || provider.normalizedReminder({ minutes: "invalid", at: "invalid" }).at !== 0) {
+        console.error("REMINDERS_FAIL bounded ingestion", JSON.stringify(activity || {}))
+        Qt.exit(45)
+        return
+      }
+
+      harness.withdrawnActivity = ""
+      if (provider.acceptJsonResponse(0, "{}", provider.maxResponseBytes + 1)
+          || provider.reminders.length !== 0
+          || harness.withdrawnActivity !== "rblalock.reminders:reminders") {
+        console.error("REMINDERS_FAIL oversized response withdrawal", harness.withdrawnActivity)
+        Qt.exit(46)
+        return
+      }
+
       harness.withdrawnActivity = ""
       provider.reminderDataOverride = { count: 0, reminders: [] }
       provider.refresh()
       if (harness.withdrawnActivity !== "rblalock.reminders:reminders") {
-        console.error("REMINDERS_FAIL withdrawal", harness.withdrawnActivity)
-        Qt.exit(45)
+        console.error("REMINDERS_FAIL empty withdrawal", harness.withdrawnActivity)
+        Qt.exit(47)
         return
       }
       console.log("REMINDERS_OK")

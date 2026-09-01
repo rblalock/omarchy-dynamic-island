@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import "plugin" as IslandPlugin
 import "plugin/components" as IslandComponents
+import "plugin/lib/ProviderContract.js" as ProviderContract
 
 ShellRoot {
   id: harness
@@ -257,6 +258,93 @@ ShellRoot {
       if (service.currentActivity.actions.length !== 1
           || service.currentActivity.actions[0].label !== "Run")
         return harness.fail("declared action normalization")
+
+      var longDisplay = ""
+      for (var displayIndex = 0; displayIndex < ProviderContract.limits.maxSubtitleChars + 20;
+           displayIndex++) longDisplay += "x"
+      var boundedActions = [{ id: "run", label: longDisplay, glyph: longDisplay }]
+      for (var actionIndex = 1;
+           actionIndex < ProviderContract.limits.maxActionsPerActivity + 1; actionIndex++)
+        boundedActions.push({ id: "action-" + actionIndex, label: "Action " + actionIndex })
+      var providerData = { nested: { value: "before" } }
+      if (!service.update("test.activity", "build", {
+          title: longDisplay,
+          subtitle: longDisplay,
+          glyph: longDisplay,
+          data: providerData,
+          actions: boundedActions,
+          event: { id: "bounded-event", title: longDisplay, subtitle: longDisplay, glyph: longDisplay },
+          unknownField: longDisplay
+        })) return harness.fail("bounded activity setup")
+      providerData.nested.value = "after"
+      var boundedActivity = service.currentActivity
+      if (boundedActivity.title.length !== ProviderContract.limits.maxTitleChars
+          || boundedActivity.subtitle.length !== ProviderContract.limits.maxSubtitleChars
+          || boundedActivity.glyph.length !== ProviderContract.limits.maxGlyphChars
+          || boundedActivity.actions.length !== ProviderContract.limits.maxActionsPerActivity
+          || boundedActivity.actions[0].label.length !== ProviderContract.limits.maxLabelChars
+          || boundedActivity.actions[0].glyph.length !== ProviderContract.limits.maxGlyphChars
+          || boundedActivity.event.title.length !== ProviderContract.limits.maxTitleChars
+          || boundedActivity.unknownField !== undefined
+          || boundedActivity.data.nested.value !== "before")
+        return harness.fail("bounded activity normalization")
+      service.clearEvent()
+
+      var longIdentifier = ""
+      for (var identifierIndex = 0;
+           identifierIndex < ProviderContract.limits.maxIdentifierChars + 1; identifierIndex++)
+        longIdentifier += "i"
+      var retainedActivity = service.currentActivity
+      if (service.publish("test.activity", { id: longIdentifier, title: "Rejected" })
+          || service.currentActivity !== retainedActivity)
+        return harness.fail("overlong activity id rejection")
+      var retainedErrors = JSON.stringify(service.providerActivityErrors)
+      if (service.publish(longIdentifier, { id: "unknown-provider", title: "Rejected" })
+          || JSON.stringify(service.providerActivityErrors) !== retainedErrors)
+        return harness.fail("unknown provider diagnostic retention")
+
+      var oversizedData = { value: longDisplay }
+      while (JSON.stringify(oversizedData).length <= ProviderContract.limits.maxDataBytes)
+        oversizedData.value += longDisplay
+      if (service.update("test.activity", "build", { data: oversizedData })
+          || service.currentActivity !== retainedActivity
+          || harness.diagnostic("test.activity").error.indexOf("data exceeds") === -1)
+        return harness.fail("oversized activity data rejection")
+      service.discoverProviders()
+      if (harness.diagnostic("test.activity").error.indexOf("data exceeds") === -1)
+        return harness.fail("provider activity error discovery retention")
+      var circularData = ({})
+      circularData.self = circularData
+      if (service.update("test.activity", "build", { data: circularData })
+          || service.currentActivity !== retainedActivity)
+        return harness.fail("circular activity data rejection")
+      if (!service.update("test.activity", "build", { data: { healthy: true } })
+          || harness.diagnostic("test.activity").error !== "")
+        return harness.fail("provider activity error recovery")
+
+      var providerSaturation = []
+      for (var providerLimitIndex = 0;
+           providerLimitIndex < ProviderContract.limits.maxActivitiesPerProvider;
+           providerLimitIndex++)
+        providerSaturation.push(service.normalizeActivity("limit.provider",
+          { id: "activity-" + providerLimitIndex, title: "Bounded" }))
+      var originalActivities = service.activities
+      service.activities = providerSaturation
+      if (service.publish("limit.provider", { id: "overflow", title: "Rejected" })
+          || !service.publish("limit.provider", { id: "activity-0", title: "Replacement" }))
+        return harness.fail("per-provider activity count boundary")
+
+      var globalSaturation = []
+      for (var globalLimitIndex = 0;
+           globalLimitIndex < ProviderContract.limits.maxActivitiesTotal; globalLimitIndex++)
+        globalSaturation.push(service.normalizeActivity("global-"
+          + Math.floor(globalLimitIndex / ProviderContract.limits.maxActivitiesPerProvider),
+          { id: "activity-" + globalLimitIndex, title: "Bounded" }))
+      service.activities = globalSaturation
+      if (service.publish("global-overflow", { id: "overflow", title: "Rejected" })
+          || !service.publish("global-0", { id: "activity-0", title: "Replacement" }))
+        return harness.fail("global activity count boundary")
+      service.activities = originalActivities
 
       if (!service.routeAction("test.activity", "build", "run")
           || observer.actions !== 1 || observer.lastAction !== "build:run")

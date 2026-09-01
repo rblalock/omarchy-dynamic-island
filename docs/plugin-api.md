@@ -116,6 +116,33 @@ activity at Rest. Opening Activity Focus exposes the ranked set and lets the
 user select another activity. Providers do not need to coordinate with one
 another or build their own activity switcher.
 
+## Resource limits
+
+Island bounds provider-owned state before retaining it in the long-lived shell:
+
+| Input | Limit |
+| --- | ---: |
+| Active activities per provider | 32 |
+| Active activities globally | 128 |
+| Actions inspected per activity | 8 |
+| Provider, activity, action, event, quick-access IDs and targets | 128 characters |
+| Activity and event titles, action labels, display names | 256 characters |
+| Activity and event subtitles | 512 characters |
+| Glyphs | 16 characters |
+| Serialized `activity.data` | 65,536 UTF-8 bytes |
+
+Overlong identifiers, non-JSON data, oversized data, and new activities beyond
+the count ceilings reject that publication without replacing the provider's
+last valid activity. Updates to an existing activity remain valid at the count
+ceiling. Display strings are truncated, only the first eight action entries are
+inspected, and unknown top-level activity or action fields are discarded.
+`activity.data` is serialized and parsed into a detached snapshot, so later
+provider mutation cannot change retained host state. A rejection appears in
+provider diagnostics and a later valid publication clears it.
+
+These are resilience limits for the public protocol, not a sandbox. Provider
+QML remains trusted, unsandboxed code inside `omarchy-shell`.
+
 ## Built-in adapters
 
 Island's own `layout.peek` list accepts only IDs for which the host ships an
@@ -160,7 +187,11 @@ activity even when a browser leaves its MPRIS object and metadata behind.
 The second reference lives in [`providers/reminders/`](../providers/reminders/).
 It consumes the structured output of Omarchy's existing reminder command and
 never schedules a parallel timer. One stable activity represents the next
-deadline while its data carries every outstanding reminder for expanded Focus.
+deadline while its data carries up to 64 sanitized reminders for expanded
+Focus. The provider allows at most 65,536 response bytes, reads only one extra
+overflow-sentinel byte before Quickshell stops buffering, limits labels to 256
+characters and other retained reminder strings to 64 characters, and withdraws
+stale state when input is oversized or invalid.
 New, Show, and Clear remain typed actions routed to Omarchy's existing reminder
 surfaces and commands. An empty reminder set withdraws the activity.
 

@@ -69,10 +69,12 @@ Item {
   property var providerObjects: ({})
   property var providerManifests: ({})
   property var providerDiagnostics: []
+  property var providerActivityErrors: ({})
   property var quickAccessItems: []
   property var eventActivity: null
   property bool eventActive: false
   property string selectedActivityKey: ""
+  property string activityNormalizationError: ""
   readonly property var rankedActivities: rankActivities(activities)
   readonly property var currentActivity: rankedActivities.length > 0 ? rankedActivities[0] : null
   readonly property var displayActivity: eventActive && eventActivity ? eventActivity : currentActivity
@@ -1063,11 +1065,38 @@ Item {
   function providerDiagnosticList() {
     return providerDiagnostics.map(function(diagnostic) {
       var result = copyObject(diagnostic)
+      if (providerActivityErrors[result.providerId])
+        result.error = providerActivityErrors[result.providerId]
       result.activities = rankedActivities.filter(function(activity) {
         return activity.providerId === diagnostic.providerId
       }).map(function(activity) { return activity.key })
       return result
     })
+  }
+
+  function recordProviderActivityError(providerId, message) {
+    var key = String(providerId || "")
+    var error = ProviderContract.boundedString(message, ProviderContract.limits.maxSubtitleChars,
+      "activity rejected")
+    if (!providerObjects[key] && !providerManifests[key]) {
+      console.warn("Omarchy Island: provider activity rejected: " + error)
+      return false
+    }
+    if (providerActivityErrors[key] === error) return false
+    var errors = copyObject(providerActivityErrors)
+    errors[key] = error
+    providerActivityErrors = errors
+    console.warn("Omarchy Island: provider activity rejected: " + error)
+    return true
+  }
+
+  function clearProviderActivityError(providerId) {
+    var key = String(providerId || "")
+    if (providerActivityErrors[key] === undefined) return false
+    var errors = copyObject(providerActivityErrors)
+    delete errors[key]
+    providerActivityErrors = errors
+    return true
   }
 
   function unloadProvider(providerId) {
@@ -1086,6 +1115,7 @@ Item {
     delete manifests[key]
     providerObjects = objects
     providerManifests = manifests
+    clearProviderActivityError(key)
     if (typeof provider.destroy === "function") provider.destroy()
     return true
   }
@@ -1097,7 +1127,9 @@ Item {
     var component = Qt.createComponent(providerUrl, Component.PreferSynchronous)
     if (component.status !== Component.Ready) {
       diagnostic.status = "failed"
-      diagnostic.error = String(component.errorString() || label + " component is not ready")
+      diagnostic.error = ProviderContract.boundedString(
+        component.errorString() || label + " component is not ready",
+        ProviderContract.limits.maxSubtitleChars, "provider component is not ready")
       console.warn("Omarchy Island: " + label + " load failed for " + key
         + ": " + diagnostic.error)
       return false
@@ -1109,7 +1141,9 @@ Item {
     })
     if (!provider) {
       diagnostic.status = "failed"
-      diagnostic.error = String(component.errorString() || label + " object could not be created")
+      diagnostic.error = ProviderContract.boundedString(
+        component.errorString() || label + " object could not be created",
+        ProviderContract.limits.maxSubtitleChars, "provider object could not be created")
       console.warn("Omarchy Island: " + label + " creation failed for " + key
         + ": " + diagnostic.error)
       return false
@@ -1128,7 +1162,8 @@ Item {
       return true
     } catch (error) {
       diagnostic.status = "failed"
-      diagnostic.error = String(error)
+      diagnostic.error = ProviderContract.boundedString(error,
+        ProviderContract.limits.maxSubtitleChars, "provider failed to start")
       console.warn("Omarchy Island: " + label + " start failed for " + key
         + ": " + diagnostic.error)
       unloadProvider(key)
@@ -1175,43 +1210,104 @@ Item {
   }
 
   function normalizeActivity(providerId, input) {
-    var activity = copyObject(input)
-    activity.providerId = String(providerId)
-    activity.id = String(activity.id || "default")
+    activityNormalizationError = ""
+    var source = input && typeof input === "object" ? input : ({})
+    var providerKey = String(providerId || "")
+    var providerError = ProviderContract.identifierError(providerKey, "provider id")
+    if (providerError !== "") {
+      activityNormalizationError = providerError
+      return null
+    }
+    var activityId = String(source.id || "default")
+    var activityIdError = ProviderContract.identifierError(activityId, "activity id")
+    if (activityIdError !== "") {
+      activityNormalizationError = activityIdError
+      return null
+    }
+    var normalizedData = ProviderContract.normalizedData(source.data)
+    if (!normalizedData.ok) {
+      activityNormalizationError = normalizedData.error
+      return null
+    }
+
+    var activity = ({})
+    activity.providerId = providerKey
+    activity.id = activityId
     activity.key = activityKey(activity.providerId, activity.id)
-    activity.title = String(activity.title || activity.providerId)
-    activity.subtitle = String(activity.subtitle || "")
-    activity.glyph = String(activity.glyph || "󰐕")
-    activity.attention = ["routine", "timely", "critical"].indexOf(String(activity.attention)) !== -1
-      ? String(activity.attention) : "routine"
-    activity.updatedAt = Number(activity.updatedAt) || Date.now()
-    var expiresAt = Number(activity.expiresAt) || 0
+    activity.title = ProviderContract.boundedString(source.title,
+      ProviderContract.limits.maxTitleChars, activity.providerId)
+    activity.subtitle = ProviderContract.boundedString(source.subtitle,
+      ProviderContract.limits.maxSubtitleChars, "")
+    activity.glyph = ProviderContract.boundedString(source.glyph,
+      ProviderContract.limits.maxGlyphChars, "󰐕")
+    activity.attention = ["routine", "timely", "critical"].indexOf(String(source.attention)) !== -1
+      ? String(source.attention) : "routine"
+    var updatedAt = Number(source.updatedAt)
+    activity.updatedAt = isFinite(updatedAt) && updatedAt > 0 ? updatedAt : Date.now()
+    var expiresAt = Number(source.expiresAt)
+    expiresAt = isFinite(expiresAt) && expiresAt > 0 ? expiresAt : 0
     if (expiresAt > 0 && expiresAt < 100000000000) expiresAt *= 1000
-    var leaseMs = Math.max(0, Number(activity.leaseMs) || 0)
+    var leaseValue = Number(source.leaseMs)
+    var leaseMs = isFinite(leaseValue) ? Math.max(0, leaseValue) : 0
+    activity.leaseMs = leaseMs
     activity.expiresAt = expiresAt > 0 ? expiresAt : (leaseMs > 0 ? activity.updatedAt + leaseMs : 0)
-    var sourceActions = Array.isArray(activity.actions) ? activity.actions : []
+    var deadline = Number(source.deadline)
+    if (isFinite(deadline) && deadline > 0) activity.deadline = deadline
+    var progress = Number(source.progress)
+    if (source.progress !== undefined && isFinite(progress))
+      activity.progress = Math.max(0, Math.min(1, progress))
+    activity.data = normalizedData.value
+
+    var sourceActions = Array.isArray(source.actions) ? source.actions : []
     var normalizedActions = []
     var seenActions = ({})
-    for (var actionIndex = 0; actionIndex < sourceActions.length; actionIndex++) {
+    var inspectedActions = Math.min(sourceActions.length,
+      ProviderContract.limits.maxActionsPerActivity)
+    for (var actionIndex = 0; actionIndex < inspectedActions; actionIndex++) {
       var sourceAction = sourceActions[actionIndex]
       if (!sourceAction || typeof sourceAction !== "object") continue
       var actionId = String(sourceAction.id || "")
-      if (actionId === "" || seenActions[actionId]) continue
-      var normalizedAction = copyObject(sourceAction)
-      normalizedAction.id = actionId
-      normalizedAction.label = String(sourceAction.label || actionId)
+      if (ProviderContract.identifierError(actionId, "action id") !== ""
+          || seenActions[actionId]) continue
+      var normalizedAction = {
+        id: actionId,
+        label: ProviderContract.boundedString(sourceAction.label,
+          ProviderContract.limits.maxLabelChars, actionId),
+        glyph: ProviderContract.boundedString(sourceAction.glyph,
+          ProviderContract.limits.maxGlyphChars, ""),
+        destructive: Boolean(sourceAction.destructive)
+      }
       normalizedActions.push(normalizedAction)
       seenActions[actionId] = true
     }
     activity.actions = normalizedActions
-    var primaryAction = String(activity.primaryAction || "")
+    var primaryAction = String(source.primaryAction || "")
     activity.primaryAction = activity.actions.some(function(action) {
       return action && String(action.id || "") === primaryAction
     }) ? primaryAction : ""
-    activity.event = activity.event && typeof activity.event === "object" ? copyObject(activity.event) : null
-    activity.presentation = activity.presentation && typeof activity.presentation === "object"
-      ? copyObject(activity.presentation) : ({})
-    activity.presentation.rest = normalizedRestPresentation(activity.presentation.rest)
+    activity.event = null
+    if (source.event && typeof source.event === "object") {
+      var eventId = String(source.event.id || "")
+      var eventIdError = ProviderContract.identifierError(eventId, "event id")
+      if (eventIdError !== "") {
+        activityNormalizationError = eventIdError
+        return null
+      }
+      activity.event = {
+        id: eventId,
+        title: ProviderContract.boundedString(source.event.title,
+          ProviderContract.limits.maxTitleChars, activity.title),
+        subtitle: ProviderContract.boundedString(source.event.subtitle,
+          ProviderContract.limits.maxSubtitleChars, activity.subtitle),
+        glyph: ProviderContract.boundedString(source.event.glyph,
+          ProviderContract.limits.maxGlyphChars, activity.glyph),
+        attention: ["routine", "timely", "critical"].indexOf(String(source.event.attention)) !== -1
+          ? String(source.event.attention) : activity.attention
+      }
+    }
+    var sourcePresentation = source.presentation && typeof source.presentation === "object"
+      ? source.presentation : ({})
+    activity.presentation = { rest: normalizedRestPresentation(sourcePresentation.rest) }
     var providerManifest = providerManifests[activity.providerId]
     if (providerManifest && providerManifest.entryPoints) {
       activity.views = ({
@@ -1226,7 +1322,37 @@ Item {
 
   function publish(providerId, activity) {
     if (!providerId || !activity || providerDisabled(providerId)) return false
+    var requestedProviderId = String(providerId || "")
+    var requestedActivityId = String(activity.id || "default")
+    var providerError = ProviderContract.identifierError(requestedProviderId, "provider id")
+    var activityIdError = ProviderContract.identifierError(requestedActivityId, "activity id")
+    if (providerError !== "" || activityIdError !== "") {
+      recordProviderActivityError(requestedProviderId, providerError || activityIdError)
+      return false
+    }
+    var requestedKey = activityKey(requestedProviderId, requestedActivityId)
+    var replacing = false
+    var providerActivityCount = 0
+    for (var countIndex = 0; countIndex < activities.length; countIndex++) {
+      if (activities[countIndex].providerId === requestedProviderId) providerActivityCount++
+      if (activities[countIndex].key === requestedKey) replacing = true
+    }
+    if (!replacing && providerActivityCount >= ProviderContract.limits.maxActivitiesPerProvider) {
+      recordProviderActivityError(requestedProviderId, "activity count exceeds "
+        + ProviderContract.limits.maxActivitiesPerProvider + " per provider")
+      return false
+    }
+    if (!replacing && activities.length >= ProviderContract.limits.maxActivitiesTotal) {
+      recordProviderActivityError(requestedProviderId, "activity count exceeds "
+        + ProviderContract.limits.maxActivitiesTotal + " globally")
+      return false
+    }
     var normalized = normalizeActivity(providerId, activity)
+    if (!normalized) {
+      recordProviderActivityError(requestedProviderId,
+        activityNormalizationError || "activity could not be normalized")
+      return false
+    }
     var next = []
     var previous = null
     for (var i = 0; i < activities.length; i++) {
@@ -1238,6 +1364,7 @@ Item {
     var eventId = normalized.event ? String(normalized.event.id || "") : ""
     var previousEventId = previous && previous.event ? String(previous.event.id || "") : ""
     if (eventId && eventId !== previousEventId) presentEvent(normalized)
+    clearProviderActivityError(requestedProviderId)
     Qt.callLater(refreshStockState)
     return true
   }
@@ -1370,7 +1497,9 @@ Item {
         if (providerDiagnostics[diagnosticIndex].providerId !== requestedProviderId) continue
         var diagnostics = providerDiagnostics.slice()
         var diagnostic = copyObject(diagnostics[diagnosticIndex])
-        diagnostic.error = "action " + requestedActionId + " failed: " + String(error)
+        diagnostic.error = ProviderContract.boundedString(
+          "action " + requestedActionId + " failed: " + String(error),
+          ProviderContract.limits.maxSubtitleChars, "provider action failed")
         diagnostics[diagnosticIndex] = diagnostic
         providerDiagnostics = diagnostics
         break
@@ -1470,17 +1599,29 @@ Item {
       var access = metadata.quickAccess && metadata.quickAccess.enabled !== false
         ? metadata.quickAccess : null
       var diagnostic = {
-        pluginId: String(pluginId),
-        providerId: providerId,
-        displayName: String(metadata.displayName || candidate.name || providerId),
+        pluginId: ProviderContract.boundedString(pluginId,
+          ProviderContract.limits.maxIdentifierChars, ""),
+        providerId: ProviderContract.boundedString(providerId,
+          ProviderContract.limits.maxIdentifierChars, ""),
+        displayName: ProviderContract.boundedString(
+          metadata.displayName || candidate.name || providerId,
+          ProviderContract.limits.maxLabelChars, providerId),
         status: enabled ? "discovered" : "disabled",
         reason: enabled ? "" : "plugin-disabled",
-        sourceDir: String(candidate.__sourceDir || ""),
-        providerEntryPoint: providerEntryPoint,
-        providerUrl: String(providerUrl || ""),
-        capabilities: Array.isArray(metadata.capabilities) ? metadata.capabilities.slice() : [],
+        sourceDir: ProviderContract.boundedString(candidate.__sourceDir,
+          ProviderContract.limits.maxSubtitleChars, ""),
+        providerEntryPoint: ProviderContract.boundedString(providerEntryPoint,
+          ProviderContract.limits.maxSubtitleChars, ""),
+        providerUrl: ProviderContract.boundedString(providerUrl,
+          ProviderContract.limits.maxSubtitleChars, ""),
+        capabilities: Array.isArray(metadata.capabilities)
+          ? metadata.capabilities.slice(0, ProviderContract.capabilities.length).map(function(value) {
+              return ProviderContract.boundedString(value,
+                ProviderContract.limits.maxIdentifierChars, "")
+            }) : [],
         presentations: presentationEntryPoints(candidate),
-        quickAccessId: access ? String(access.id || pluginId) : "",
+        quickAccessId: access ? ProviderContract.boundedString(access.id || pluginId,
+          ProviderContract.limits.maxIdentifierChars, "") : "",
         error: ""
       }
       diagnostics.push(diagnostic)
@@ -1496,8 +1637,11 @@ Item {
           id: String(access.id || pluginId),
           kind: "quick-access",
           target: String(access.target || pluginId),
-          label: String(access.label || metadata.displayName || candidate.name || pluginId),
-          glyph: String(access.glyph || metadata.fallbackGlyph || "󰐕"),
+          label: ProviderContract.boundedString(
+            access.label || metadata.displayName || candidate.name || pluginId,
+            ProviderContract.limits.maxLabelChars, pluginId),
+          glyph: ProviderContract.boundedString(access.glyph || metadata.fallbackGlyph,
+            ProviderContract.limits.maxGlyphChars, "󰐕"),
           fontFamily: "",
           payload: ""
         })
@@ -1513,7 +1657,9 @@ Item {
         var ownerId = owner ? String(owner.id || "") : ""
         if (ownerId && ownerId !== String(pluginId)) {
           diagnostic.status = "failed"
-          diagnostic.error = "provider id is already owned by plugin " + ownerId
+          diagnostic.error = ProviderContract.boundedString(
+            "provider id is already owned by plugin " + ownerId,
+            ProviderContract.limits.maxSubtitleChars, "provider id is already owned")
         } else {
           diagnostic.status = "loaded"
         }
@@ -1534,7 +1680,9 @@ Item {
       var defaultDiagnostic = {
         pluginId: defaultDefinition.pluginId,
         providerId: defaultId,
-        displayName: String(defaultManifest.omarchyIsland.displayName || defaultId),
+        displayName: ProviderContract.boundedString(
+          defaultManifest.omarchyIsland.displayName || defaultId,
+          ProviderContract.limits.maxLabelChars, defaultId),
         status: "discovered",
         reason: "bundled",
         sourceDir: String(defaultManifest.__entryPointBaseUrl || ""),

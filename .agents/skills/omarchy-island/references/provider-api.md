@@ -22,6 +22,8 @@ records, and Now Playing only for a genuinely rich presentation.
 - Stop every timer/process and withdraw all activity from `stop()`.
 - Bound external commands and recover without stale activity.
 - Publish a stable activity `id`, useful `title`, and fallback `glyph`.
+- Stay within the activity, action, display-string, and data limits documented
+  in `docs/plugin-api.md`; rejected publications preserve the last valid state.
 - Use real progress only; omit unknown progress.
 - Declare every action in `actions` before routing it.
 - Point `primaryAction` at one declared action or omit it.
