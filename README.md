@@ -132,10 +132,26 @@ See [OSD companion](docs/osd-companion.md) for behavior and recovery details.
 
 ## Inspect and troubleshoot
 
+If an update completes but Island still behaves like the previous version,
+restart the shell after updating. Omarchy rescans plugins during an update, but
+an existing keep-loaded QML instance can remain alive until the shell restarts:
+
+```bash
+omarchy plugin update rblalock.omarchy-island --yes
+omarchy restart shell
+```
+
+To confirm which revision is installed:
+
+```bash
+git -C ~/.config/omarchy/plugins/rblalock.omarchy-island rev-parse --short HEAD
+```
+
+For runtime state and provider diagnostics:
+
 ```bash
 omarchy-shell omarchy-island inspect | jq
 omarchy plugin list
-omarchy restart shell
 ```
 
 Provider-specific diagnostics are available at:
