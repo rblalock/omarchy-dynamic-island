@@ -41,7 +41,7 @@ adding another shell process or panel system.
 - Omarchy 4 with the Quattro shell plugin host
 - A Nerd Font supplied by the active Omarchy theme
 
-The initial release is tested on Omarchy 4.0.2. Its bundled activities reuse
+Tested on Omarchy 4.0.2 and 4.0.3. Its bundled activities reuse
 Omarchy's existing media, reminder, screen-recording, and update facilities;
 they do not install another scheduler, recorder, updater, or media service.
 
@@ -132,9 +132,9 @@ See [OSD companion](docs/osd-companion.md) for behavior and recovery details.
 
 ## Inspect and troubleshoot
 
-If an update completes but Island still behaves like the previous version,
-restart the shell after updating. Omarchy rescans plugins during an update, but
-an existing keep-loaded QML instance can remain alive until the shell restarts:
+After Omarchy 4.0.3, update Island and restart the shell. Omarchy rescans
+plugins during an update, but an existing keep-loaded QML instance can remain
+alive until the shell restarts:
 
 ```bash
 omarchy plugin update rblalock.omarchy-island --yes

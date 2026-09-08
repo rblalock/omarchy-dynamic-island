@@ -16,6 +16,8 @@ Item {
 
   function outputMatches(screenName) {
     var focused = Hyprland.focusedMonitor ? String(Hyprland.focusedMonitor.name || "") : ""
+    if (focused === "" && root.island && typeof root.island.focusedOutputName === "function")
+      focused = String(root.island.focusedOutputName() || "")
     if (focused === "" && shell && shell.bar && typeof shell.bar.focusedScreenName === "function")
       focused = String(shell.bar.focusedScreenName() || "")
     if (focused === "" && Quickshell.screens.length > 0)

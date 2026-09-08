@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "rblalock.omarchy-island",
   "name": "Omarchy Island",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "Rick Blalock",
   "license": "MIT",
   "description": "A morphing bar widget for Omarchy controls, panels, and plugin-native activity views.",

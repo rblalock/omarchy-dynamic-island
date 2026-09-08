@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 import qs.Commons
 import qs.Ui as Ui
 import "components"
@@ -37,10 +38,15 @@ Ui.BarWidget {
   property var clockAdapter: stockClockLoader.item
   property var indicatorAdapter: stockIndicatorLoader.item
   property var keyboardAdapter: stockKeyboardLoader.item
+  property var audioAdapter: stockAudioLoader.item
+  property var displayAdapter: stockDisplayLoader.item
+  property var trayAdapter: stockTrayLoader.item
+  property var bluetoothAdapter: stockBluetoothLoader.item
+  property var networkAdapter: stockNetworkLoader.item
+  property var powerAdapter: stockPowerLoader.item
 
   readonly property string hostScreenName: {
-    var window = bar && typeof bar.targetWindow === "function"
-      ? bar.targetWindow(root) : (root.QsWindow ? root.QsWindow.window : null)
+    var window = root.hostWindow()
     return window && window.screen ? String(window.screen.name || "") : ""
   }
   readonly property real horizontalPadding: Style.space(4)
@@ -67,6 +73,47 @@ Ui.BarWidget {
   implicitWidth: targetWidth + horizontalPadding * 2
   implicitHeight: Style.bar.sizeHorizontal
   clip: true
+
+  function isLiveStockBar(candidate) {
+    return !!(candidate
+      && typeof candidate.moduleWidgets === "function"
+      && typeof candidate.targetWindow === "function"
+      && typeof candidate.focusedScreenName === "function")
+  }
+
+  function liveHostBar() {
+    if (isLiveStockBar(bar)) return bar
+    var window = root.QsWindow ? root.QsWindow.window : null
+    var candidates = [root.parent, window]
+    if (window) {
+      candidates.push(window.parent)
+      if (window.contentItem) candidates.push(window.contentItem)
+    }
+    for (var i = 0; i < candidates.length; i++) {
+      var item = candidates[i]
+      var depth = 0
+      while (item && depth < 16) {
+        if (isLiveStockBar(item)) return item
+        item = item.parent
+        depth++
+      }
+    }
+    return bar
+  }
+
+  function hostWindow() {
+    var candidate = root.liveHostBar()
+    if (candidate && typeof candidate.targetWindow === "function")
+      return candidate.targetWindow(root)
+    if (bar && typeof bar.targetWindow === "function")
+      return bar.targetWindow(root)
+    return root.QsWindow ? root.QsWindow.window : null
+  }
+
+  function adapterBar() {
+    var live = root.liveHostBar()
+    return isLiveStockBar(live) ? live : bar
+  }
 
   function filteredProxyItems(values) {
     var result = []
@@ -96,7 +143,7 @@ Ui.BarWidget {
   function configureClockAdapter() {
     var adapter = clockAdapter
     if (!adapter || !island) return
-    if ("bar" in adapter) adapter.bar = root.bar
+    if ("bar" in adapter) adapter.bar = root.adapterBar()
     if ("settings" in adapter) adapter.settings = {
       id: "omarchy.clock",
       format: island.clockFormat,
@@ -108,7 +155,8 @@ Ui.BarWidget {
 
   function configureStockAdapter(adapter, pluginId) {
     if (!adapter) return
-    if ("bar" in adapter) adapter.bar = root.bar
+    if ("manageIpc" in adapter) adapter.manageIpc = false
+    if ("bar" in adapter) adapter.bar = root.adapterBar()
     if ("settings" in adapter) adapter.settings = { id: String(pluginId || "") }
     if (island) Qt.callLater(island.refreshStockState)
   }
@@ -117,6 +165,12 @@ Ui.BarWidget {
     var id = String(pluginId || "")
     if (id === "omarchy.indicators") return indicatorAdapter
     if (id === "omarchy.keyboard-layout") return keyboardAdapter
+    if (id === "omarchy.audio") return audioAdapter
+    if (id === "omarchy.monitor") return displayAdapter
+    if (id === "omarchy.tray") return trayAdapter
+    if (id === "omarchy.bluetooth") return bluetoothAdapter
+    if (id === "omarchy.network") return networkAdapter
+    if (id === "omarchy.power") return powerAdapter
     return null
   }
 
@@ -243,6 +297,10 @@ Ui.BarWidget {
       clockAdapterReady: clockAdapter !== null,
       indicatorAdapterReady: indicatorAdapter !== null,
       keyboardAdapterReady: keyboardAdapter !== null,
+      audioAdapterReady: audioAdapter !== null,
+      displayAdapterReady: displayAdapter !== null,
+      trayAdapterReady: trayAdapter !== null,
+      liveHostBar: isLiveStockBar(root.liveHostBar()),
       proxyItems: proxyItems.map(function(item) { return String(item.id || "") })
     }
   }
@@ -263,6 +321,12 @@ Ui.BarWidget {
   onClockAdapterChanged: configureClockAdapter()
   onIndicatorAdapterChanged: configureStockAdapter(indicatorAdapter, "omarchy.indicators")
   onKeyboardAdapterChanged: configureStockAdapter(keyboardAdapter, "omarchy.keyboard-layout")
+  onAudioAdapterChanged: configureStockAdapter(audioAdapter, "omarchy.audio")
+  onDisplayAdapterChanged: configureStockAdapter(displayAdapter, "omarchy.monitor")
+  onTrayAdapterChanged: configureStockAdapter(trayAdapter, "omarchy.tray")
+  onBluetoothAdapterChanged: configureStockAdapter(bluetoothAdapter, "omarchy.bluetooth")
+  onNetworkAdapterChanged: configureStockAdapter(networkAdapter, "omarchy.network")
+  onPowerAdapterChanged: configureStockAdapter(powerAdapter, "omarchy.power")
   onKeyboardInventoryChanged: {
     if (keyboardInventory) Qt.callLater(ensureKeyboardSelection)
     else keyboardSelectionId = ""
@@ -314,6 +378,72 @@ Ui.BarWidget {
     opacity: 0
     z: -100
     onLoaded: root.configureStockAdapter(item, "omarchy.keyboard-layout")
+  }
+
+  Loader {
+    id: stockAudioLoader
+    active: root.island && !root.island.hasMountedStockWidget("omarchy.audio")
+    source: active ? root.island.pluginEntryPointUrl("omarchy.audio", "barWidget") : ""
+    width: 1
+    height: 1
+    opacity: 0
+    z: -100
+    onLoaded: root.configureStockAdapter(item, "omarchy.audio")
+  }
+
+  Loader {
+    id: stockDisplayLoader
+    active: root.island && !root.island.hasMountedStockWidget("omarchy.monitor")
+    source: active ? root.island.pluginEntryPointUrl("omarchy.monitor", "barWidget") : ""
+    width: 1
+    height: 1
+    opacity: 0
+    z: -100
+    onLoaded: root.configureStockAdapter(item, "omarchy.monitor")
+  }
+
+  Loader {
+    id: stockTrayLoader
+    active: root.island && !root.island.hasMountedStockWidget("omarchy.tray")
+    source: active ? root.island.pluginEntryPointUrl("omarchy.tray", "barWidget") : ""
+    width: 1
+    height: 1
+    opacity: 0
+    z: -100
+    onLoaded: root.configureStockAdapter(item, "omarchy.tray")
+  }
+
+  Loader {
+    id: stockBluetoothLoader
+    active: root.island && !root.island.hasMountedStockWidget("omarchy.bluetooth")
+    source: active ? root.island.pluginEntryPointUrl("omarchy.bluetooth", "barWidget") : ""
+    width: 1
+    height: 1
+    opacity: 0
+    z: -100
+    onLoaded: root.configureStockAdapter(item, "omarchy.bluetooth")
+  }
+
+  Loader {
+    id: stockNetworkLoader
+    active: root.island && !root.island.hasMountedStockWidget("omarchy.network")
+    source: active ? root.island.pluginEntryPointUrl("omarchy.network", "barWidget") : ""
+    width: 1
+    height: 1
+    opacity: 0
+    z: -100
+    onLoaded: root.configureStockAdapter(item, "omarchy.network")
+  }
+
+  Loader {
+    id: stockPowerLoader
+    active: root.island && !root.island.hasMountedStockWidget("omarchy.power")
+    source: active ? root.island.pluginEntryPointUrl("omarchy.power", "barWidget") : ""
+    width: 1
+    height: 1
+    opacity: 0
+    z: -100
+    onLoaded: root.configureStockAdapter(item, "omarchy.power")
   }
 
   Connections {

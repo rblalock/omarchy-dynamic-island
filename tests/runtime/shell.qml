@@ -122,6 +122,15 @@ ShellRoot {
   }
 
   QtObject {
+    id: scopedBarState
+    property bool barHidden: false
+    property int barSize: 24
+    property string fontFamily: ""
+    property string position: "top"
+    function run(command) { harness.lastRunCommand = String(command) }
+  }
+
+  QtObject {
     id: fakeBar
     property var shell: fakeShell
     property var activePopout: null
@@ -177,7 +186,9 @@ ShellRoot {
   QtObject {
     id: fakeShell
     property var bar: fakeBar
+    property bool toggleAllowed: true
     function toggle(pluginId, payloadJson) {
+      if (!toggleAllowed) return false
       harness.toggledPlugin = String(pluginId)
       harness.toggledPayload = String(payloadJson)
       return true
@@ -785,6 +796,25 @@ ShellRoot {
         Qt.exit(12)
         return
       }
+      var originalBar = fakeShell.bar
+      fakeShell.bar = scopedBarState
+      fakeShell.toggleAllowed = false
+      service.refreshStockState()
+      if (service.stockWidget("omarchy.audio") !== audioWidget || !service.audioAvailable
+          || !service.togglePlugin("omarchy.bluetooth", "")
+          || String(harness.lastRunCommand).indexOf("omarchy-shell shell toggle") === -1
+          || String(harness.lastRunCommand).indexOf("omarchy.bluetooth") === -1) {
+        console.error("HARNESS_FAIL scoped shell stock routing", service.inspectJson(), harness.lastRunCommand)
+        Qt.exit(29)
+        return
+      }
+      if (!service.openLauncher() || String(harness.lastRunCommand).indexOf("omarchy.menu") === -1) {
+        console.error("HARNESS_FAIL scoped shell launcher", harness.lastRunCommand)
+        Qt.exit(29)
+        return
+      }
+      fakeShell.toggleAllowed = true
+      fakeShell.bar = originalBar
       console.log("HARNESS_OK", service.inspectJson())
       Qt.quit()
     }

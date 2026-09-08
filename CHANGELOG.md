@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1 - 2026-09-08
+
+- Keep stock panel, widget, and adapter routing working on Omarchy 4.0.3's
+  scoped third-party shell facades.
+
 ## 0.1.0 - 2026-08-29
 
 - Ship Omarchy Island as one movable widget in the stock Omarchy bar.

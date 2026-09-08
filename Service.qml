@@ -155,11 +155,106 @@ Item {
   }
 
   function pluginEntryPointUrl(pluginId, entryPoint) {
-    if (!pluginRegistry || !pluginRegistry.installedPlugins
-        || typeof pluginRegistry.entryPointUrl !== "function") return ""
-    var candidate = pluginRegistry.installedPlugins[String(pluginId || "")]
-    return candidate
-      ? String(pluginRegistry.entryPointUrl(candidate, String(entryPoint || "")) || "") : ""
+    if (pluginRegistry && pluginRegistry.installedPlugins
+        && typeof pluginRegistry.entryPointUrl === "function") {
+      var candidate = pluginRegistry.installedPlugins[String(pluginId || "")]
+      var fromRegistry = candidate
+        ? String(pluginRegistry.entryPointUrl(candidate, String(entryPoint || "")) || "") : ""
+      if (fromRegistry) return fromRegistry
+    }
+    return firstPartyBarWidgetUrl(pluginId, entryPoint)
+  }
+
+  function firstPartyBarWidgetUrl(pluginId, entryPoint) {
+    if (String(entryPoint || "") !== "barWidget") return ""
+    if (!pluginRegistryIsSelfScoped()) return ""
+    var paths = {
+      "omarchy.clock": "shell/plugins/panels/clock/BarWidget.qml",
+      "omarchy.indicators": "shell/plugins/bar/widgets/Indicators.qml",
+      "omarchy.keyboard-layout": "shell/plugins/bar/widgets/KeyboardLayout.qml",
+      "omarchy.audio": "shell/plugins/panels/audio/Panel.qml",
+      "omarchy.monitor": "shell/plugins/panels/monitor/Panel.qml",
+      "omarchy.tray": "shell/plugins/bar/widgets/Tray.qml",
+      "omarchy.bluetooth": "shell/plugins/panels/bluetooth/Panel.qml",
+      "omarchy.network": "shell/plugins/panels/network/Panel.qml",
+      "omarchy.power": "shell/plugins/panels/power/Panel.qml"
+    }
+    var relative = paths[String(pluginId || "")]
+    if (!relative) return ""
+    var omarchyPath = String((shell && shell.omarchyPath) || Quickshell.env("OMARCHY_PATH") || "/usr/share/omarchy")
+    return "file://" + omarchyPath.replace(/\/$/, "") + "/" + relative
+  }
+
+  function pluginRegistryIsSelfScoped() {
+    if (!pluginRegistry || !pluginRegistry.installedPlugins || !manifest) return false
+    var installed = pluginRegistry.installedPlugins
+    var keys = []
+    for (var id in installed) keys.push(id)
+    return keys.length === 1 && keys[0] === String(manifest.id || "")
+  }
+
+  function isLiveStockBar(candidate) {
+    return !!(candidate
+      && typeof candidate.moduleWidgets === "function"
+      && typeof candidate.targetWindow === "function"
+      && typeof candidate.focusedScreenName === "function")
+  }
+
+  function liveStockBar() {
+    if (isLiveStockBar(shell && shell.bar)) return shell.bar
+    for (var i = 0; i < barHosts.length; i++) {
+      var host = barHosts[i]
+      if (!host) continue
+      if (isLiveStockBar(host.bar)) return host.bar
+      if (typeof host.liveHostBar === "function") {
+        var hosted = host.liveHostBar()
+        if (isLiveStockBar(hosted)) return hosted
+      }
+      var item = host.parent
+      while (item) {
+        if (isLiveStockBar(item)) return item
+        item = item.parent
+      }
+    }
+    return null
+  }
+
+  function runnableBar() {
+    var stock = stockBar()
+    if (stock && typeof stock.run === "function") return stock
+    var live = liveStockBar()
+    if (live && typeof live.run === "function") return live
+    for (var i = 0; i < barHosts.length; i++) {
+      var bar = barHosts[i] && barHosts[i].bar
+      if (bar && typeof bar.run === "function") return bar
+    }
+    return null
+  }
+
+  function focusedOutputName() {
+    var live = liveStockBar()
+    if (live && typeof live.focusedScreenName === "function") {
+      var fromBar = String(live.focusedScreenName() || "")
+      if (fromBar) return fromBar
+    }
+    if (shell && shell.bar && typeof shell.bar.focusedScreenName === "function") {
+      var fromShell = String(shell.bar.focusedScreenName() || "")
+      if (fromShell) return fromShell
+    }
+    var monitor = Hyprland.focusedMonitor
+    return monitor ? String(monitor.name || "") : ""
+  }
+
+  function shellQuote(value) {
+    return typeof Util.shellQuote === "function"
+      ? Util.shellQuote(value) : ("'" + String(value || "").replace(/'/g, "'\\''") + "'")
+  }
+
+  function hostShellCommand(method, pluginId, payload) {
+    var command = "omarchy-shell shell " + String(method || "toggle") + " " + shellQuote(pluginId)
+    if (payload !== undefined && payload !== null && String(payload) !== "")
+      command += " " + shellQuote(String(payload))
+    return command
   }
 
   function persistClockFormat(format) {
@@ -208,15 +303,28 @@ Item {
   function widgetScreenName(widget) {
     if (!widget) return ""
     if (widget.hostScreenName) return String(widget.hostScreenName)
-    var window = shell && shell.bar && typeof shell.bar.targetWindow === "function"
-      ? shell.bar.targetWindow(widget)
+    var bar = liveStockBar()
+    var window = bar && typeof bar.targetWindow === "function"
+      ? bar.targetWindow(widget)
       : (widget.QsWindow ? widget.QsWindow.window : null)
     return window && window.screen ? String(window.screen.name || "") : ""
   }
 
+  function stockWidgets(pluginId) {
+    var bar = liveStockBar()
+    if (bar && typeof bar.moduleWidgets === "function") {
+      var widgets = bar.moduleWidgets(String(pluginId || ""))
+      if (widgets && widgets.length > 0) return widgets
+    }
+    if (shell && shell.bar && typeof shell.bar.moduleWidgets === "function") {
+      var scoped = shell.bar.moduleWidgets(String(pluginId || ""))
+      if (scoped && scoped.length > 0) return scoped
+    }
+    return []
+  }
+
   function stockWidgetOnScreen(pluginId, screenName) {
-    var widgets = shell && shell.bar && typeof shell.bar.moduleWidgets === "function"
-      ? shell.bar.moduleWidgets(pluginId) : []
+    var widgets = stockWidgets(pluginId)
     var targetScreen = String(screenName || "")
     if (widgets && widgets.length > 0 && targetScreen !== "") {
       for (var i = 0; i < widgets.length; i++)
@@ -234,16 +342,14 @@ Item {
   }
 
   function hasMountedStockWidget(pluginId) {
-    if (!shell || !shell.bar || typeof shell.bar.moduleWidgets !== "function") return false
-    var widgets = shell.bar.moduleWidgets(String(pluginId || ""))
+    var widgets = stockWidgets(String(pluginId || ""))
     return !!(widgets && widgets.length > 0)
   }
 
   function activeIslandScreenName() {
     var hostScreen = barHostScreenName(activeBarHost())
     if (hostScreen !== "") return hostScreen
-    return shell && shell.bar && typeof shell.bar.focusedScreenName === "function"
-      ? String(shell.bar.focusedScreenName() || "") : ""
+    return focusedOutputName()
   }
 
   function stockWidget(pluginId) {
@@ -258,8 +364,7 @@ Item {
 
   function activeBarHost() {
     if (barHosts.length === 0) return null
-    var focused = shell && shell.bar && typeof shell.bar.focusedScreenName === "function"
-      ? String(shell.bar.focusedScreenName() || "") : ""
+    var focused = focusedOutputName()
     if (focused !== "") {
       for (var i = 0; i < barHosts.length; i++)
         if (barHostScreenName(barHosts[i]) === focused) return barHosts[i]
@@ -571,9 +676,18 @@ Item {
   }
 
   function stockRun(command) {
-    var bar = stockBar()
-    if (!bar || typeof bar.run !== "function") return false
-    bar.run(String(command || ""))
+    var value = String(command || "")
+    if (!value) return false
+    var bar = runnableBar()
+    if (bar && typeof bar.run === "function") {
+      bar.run(value)
+      return true
+    }
+    if (typeof Util.execDetached === "function") {
+      Util.execDetached(value)
+      return true
+    }
+    Quickshell.execDetached(["bash", "-lc", value])
     return true
   }
 
@@ -726,11 +840,13 @@ Item {
   function togglePlugin(pluginId, payloadJson) {
     lastAction = String(pluginId || "")
     var payload = String(payloadJson || "")
-    // The stock shell routes bar-widget panels to the focused monitor. Use
-    // that before the direct compatibility path, which cannot safely infer a
-    // popup anchor from the first per-monitor widget instance.
+    // Prefer in-process shell.toggle when the host still exposes it. Omarchy
+    // 4.0.3 scoped third-party facades refuse other plugins, so fall back to
+    // the public `omarchy-shell shell toggle` IPC and then a live widget.
     lastActionAccepted = !!(shell && typeof shell.toggle === "function"
       && shell.toggle(lastAction, payload))
+    if (!lastActionAccepted)
+      lastActionAccepted = stockRun(hostShellCommand("toggle", lastAction, payload))
     if (!lastActionAccepted && payload === "")
       lastActionAccepted = toggleStockPanel(lastAction)
     actionFeedback.restart()
@@ -932,13 +1048,14 @@ Item {
   }
 
   function openQuickAccess(targetId) {
-    if (!shell) return false
     closeRetained()
-    if (typeof shell.summon === "function") {
-      return shell.summon(String(targetId), "{}") === true
-    }
-    if (typeof shell.toggle === "function") return Boolean(shell.toggle(String(targetId), "{}"))
-    return false
+    var id = String(targetId || "")
+    if (!id) return false
+    if (shell && typeof shell.summon === "function" && shell.summon(id, "{}") === true)
+      return true
+    if (shell && typeof shell.toggle === "function" && Boolean(shell.toggle(id, "{}")))
+      return true
+    return stockRun(hostShellCommand("summon", id, "{}"))
   }
 
   function triggerIndicator(indicatorId) {
@@ -1745,6 +1862,7 @@ Item {
       keyboardPeekActive: keyboardPeekActive,
       lastAction: lastAction,
       lastActionAccepted: lastActionAccepted,
+      liveStockBar: liveStockBar() !== null,
       retainedWindow: {
         enabled: retainedWindowEnabled,
         ready: retainedWindowLoader.item !== null,
