@@ -2,7 +2,8 @@
 
 Pointer and keyboard Peek use the same Island-owned proxy controls. Stock
 behavior remains authoritative, and proxies delegate to public actions, stock
-panels, or feature-detected compatibility adapters. This ledger
+panels, or feature-detected compatibility adapters. That routing remains the
+same at the bar's top, bottom, left, or right edge. This ledger
 tracks where that routing preserves parity, adds a richer retained morph, or
 still needs work.
 

@@ -14,7 +14,8 @@ adding another shell process or panel system.
 - 🏝️ **One movable bar widget:** lives inside the stock Omarchy bar, inherits
   its transparency, and appears on every connected monitor.
 - ⚡ **Morphing interface:** moves between a minimal Rest state, horizontal
-  Peek, transient feedback, and focused details without adding another bar.
+  Peek, transient feedback, and focused details without adding another bar;
+  left and right bars grow the same interface inward over the desktop.
 - ⌨️ **Keyboard-first control:** open it from a Hyprland shortcut, navigate with
   arrows or `h/j/k/l`, and activate with `Enter` or `Space`.
 - 🔢 **Dynamic number shortcuts:** `1` through `9` activate the first nine Peek
@@ -65,7 +66,12 @@ Island's [configuration](docs/configuration.md).
 
 The widget starts in the center section and can be dragged or moved like any
 other Omarchy bar widget. It appears on every monitor where Omarchy renders its
-bar; retained actions target the focused monitor.
+bar; retained actions target the focused monitor. Island follows the stock
+bar's `top`, `bottom`, `left`, or `right` position automatically. For example:
+
+```bash
+omarchy bar position left
+```
 
 ## Use
 
@@ -88,8 +94,9 @@ Island reads optional user overrides from:
 
 The file is not required. Island does not create it during installation or
 remove it during uninstall. If you right-click Island's clock to change its
-format, Island creates or updates only `appearance.clock_format`; hand-written
-settings are preserved. Configuration hot-reloads. See
+format, Island creates or updates only the matching `appearance.clock_format`
+or `appearance.clock_format_vertical`; hand-written settings are preserved.
+Configuration hot-reloads. See
 [Configuration](docs/configuration.md) for appearance, motion, inventory,
 provider ordering, and adapter settings.
 

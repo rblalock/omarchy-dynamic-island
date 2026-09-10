@@ -8,6 +8,7 @@ Item {
 
   property string accessibleName: "Open launcher"
   property string format: "h:mm AP"
+  property bool vertical: false
   property real cornerRadius: Style.cornerRadius
   property bool interactive: true
   property var bar: null
@@ -19,8 +20,9 @@ Item {
   readonly property string displayText: Qt.formatDateTime(clock.date, format)
   readonly property bool hovered: pointer.containsMouse
 
-  implicitWidth: label.implicitWidth + Style.space(14)
-  implicitHeight: Math.max(label.implicitHeight, Style.bar.sizeHorizontal)
+  implicitWidth: vertical ? Style.bar.sizeVertical : label.implicitWidth + Style.space(14)
+  implicitHeight: vertical ? Style.bar.sizeVertical
+    : Math.max(label.implicitHeight, Style.bar.sizeHorizontal)
   activeFocusOnTab: true
   Keys.onReturnPressed: root.activated()
   Keys.onEnterPressed: root.activated()
@@ -60,12 +62,15 @@ Item {
 
   Text {
     id: label
-    anchors.centerIn: parent
+    anchors.fill: parent
     text: root.displayText
     color: Color.popups.text
     font.family: Style.font.family
-    font.pixelSize: Style.font.bodySmall
+    font.pixelSize: root.vertical ? Style.font.caption : Style.font.bodySmall
     font.weight: Font.Medium
+    horizontalAlignment: Text.AlignHCenter
+    verticalAlignment: Text.AlignVCenter
+    lineHeight: root.vertical ? 0.82 : 1
     renderType: Text.NativeRendering
   }
 

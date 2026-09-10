@@ -83,9 +83,14 @@ Item {
 
   readonly property string styleName: String(value("appearance", "style", "pill"))
   property string clockFormatOverride: ""
+  property string verticalClockFormatOverride: ""
   readonly property string configuredClockFormat: String(value("appearance", "clock_format", "h:mm AP"))
+  readonly property string configuredVerticalClockFormat: String(
+    value("appearance", "clock_format_vertical", "HH\nmm"))
   readonly property string clockFormat: clockFormatOverride !== ""
     ? clockFormatOverride : configuredClockFormat
+  readonly property string verticalClockFormat: verticalClockFormatOverride !== ""
+    ? verticalClockFormatOverride : configuredVerticalClockFormat
   readonly property string clockWidgetUrl: pluginEntryPointUrl("omarchy.clock", "barWidget")
   readonly property real configuredShelfWidth: Math.max(0, Number(value("appearance", "shelf_width", 0)) || 0)
   readonly property real configuredShelfHeight: Math.max(0, Number(value("appearance", "shelf_height", 0)) || 0)
@@ -257,7 +262,7 @@ Item {
     return command
   }
 
-  function persistClockFormat(format) {
+  function persistClockFormat(format, vertical) {
     var value = String(format || "")
     if (value === "") return false
     var raw = String(userConfigFile.text() || "")
@@ -275,14 +280,16 @@ Item {
     }
     var encoded = value.replace(/\\/g, "\\\\").replace(/\"/g, "\\\"")
       .replace(/\n/g, "\\n")
-    var entry = "clock_format = \"" + encoded + "\""
+    var key = vertical === true ? "clock_format_vertical" : "clock_format"
+    var entry = key + " = \"" + encoded + "\""
     if (section < 0) {
       if (raw.trim() !== "") lines.push("")
       lines.push("[appearance]", entry, "")
     } else {
       var replaced = false
       for (var line = section + 1; line < nextSection; line++) {
-        if (!/^\s*clock_format\s*=/.test(lines[line])) continue
+        var setting = lines[line].match(/^\s*([A-Za-z0-9_-]+)\s*=/)
+        if (!setting || setting[1] !== key) continue
         lines[line] = entry
         replaced = true
         break
@@ -293,11 +300,12 @@ Item {
     return true
   }
 
-  function setClockFormat(format, persist) {
+  function setClockFormat(format, persist, vertical) {
     var value = String(format || "")
     if (value === "") return false
-    clockFormatOverride = value
-    return persist === true ? persistClockFormat(value) : true
+    if (vertical === true) verticalClockFormatOverride = value
+    else clockFormatOverride = value
+    return persist === true ? persistClockFormat(value, vertical === true) : true
   }
 
   function widgetScreenName(widget) {
@@ -1032,7 +1040,13 @@ Item {
     action = String(action || "activate")
     var tray = stockWidget("omarchy.tray")
     if ((action === "menu" || item.onlyMenu) && tray && typeof tray.openTrayMenu === "function" && anchor) {
-      tray.openTrayMenu(item, anchor, { x: anchor.width / 2, y: anchor.height })
+      var host = activeBarHost()
+      var edge = host ? String(host.barPosition || "top") : "top"
+      var point = { x: anchor.width / 2, y: anchor.height }
+      if (edge === "bottom") point.y = 0
+      else if (edge === "left") point = { x: anchor.width, y: anchor.height / 2 }
+      else if (edge === "right") point = { x: 0, y: anchor.height / 2 }
+      tray.openTrayMenu(item, anchor, point)
       return true
     }
     if (action === "secondary" && typeof item.secondaryActivate === "function") item.secondaryActivate()
@@ -1894,6 +1908,7 @@ Item {
         motionCollapseMs: motionCollapseMs,
         contentMotionMs: contentMotionMs,
         clockFormat: clockFormat,
+        verticalClockFormat: verticalClockFormat,
         restContent: restContent,
         keyboardTarget: keyboardTarget,
         customQmlAllowed: customQmlAllowed

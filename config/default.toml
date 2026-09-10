@@ -11,6 +11,7 @@ focus_height = 224
 controls_height = 318
 corner_radius = "system"
 clock_format = "h:mm AP"
+clock_format_vertical = "HH\nmm"
 background = ""
 border = ""
 allow_custom_qml = true

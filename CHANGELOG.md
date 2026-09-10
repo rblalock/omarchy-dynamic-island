@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Follow the stock bar to left and right edges while preserving the horizontal
+  Peek, transient, keyboard, provider, and stock-panel behavior.
+- Anchor Island-owned detail inward from the live vertical Rest position.
+
 ## 0.1.1 - 2026-09-08
 
 - Keep stock panel, widget, and adapter routing working on Omarchy 4.0.3's

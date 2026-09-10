@@ -8,7 +8,11 @@ retained detail surfaces.
 
 **Creative North Star: "A quiet aperture"**
 
-Omarchy Island inherits the active Omarchy visual system and concentrates it into one top-center surface. The interface is nearly absent at Rest, becomes scannable at Peek, and gains only the space required for a retained Shelf, Focus, or Controls task. The signature is the causal morph between those states, not a separate brand layer.
+Omarchy Island inherits the active Omarchy visual system and concentrates it
+into one surface at the bar's configured edge. The interface is nearly absent
+at Rest, becomes scannable at Peek, and gains only the space required for a
+retained Shelf, Focus, or Controls task. The signature is the causal morph
+between those states, not a separate brand layer.
 
 The surface is an operate-mode shell extension: compact, theme-native, keyboard-capable, and explicit about fallback behavior. Provider artwork or custom QML may enrich the inside of the aperture, but the host continues to own its outer geometry, focus, close path, and failure state.
 
@@ -49,8 +53,11 @@ Hyprland-focused monitor. That window exists only for Detail content and
 invisible Wayland keyboard capture; it never renders another Rest clock or Peek
 inventory.
 
-Rest and Peek use the active bar height and content-derived width. Retained
-views share a configurable shelf width, capped to the screen with 12
+Horizontal-bar Rest and Peek use the active bar height and content-derived
+width. On a vertical bar, square Rest remains in the bar while the same
+horizontal Peek or transient grows inward from that anchor in Island's retained
+overlay; it never creates a second logical Island. Retained views share a
+configurable shelf width, capped to the screen with 12
 theme-scaled pixels of clearance per side. Shelf height derives from the active
 collection plus retained chrome, treats an explicit height as a minimum, and
 scrolls only when screen height becomes the cap. Focus and Controls retain
@@ -72,7 +79,13 @@ card; retained views extend the input mask for outside-click dismissal.
 
 `system` is the default and uses Omarchy's live `Style.cornerRadius`, which mirrors Hyprland `decoration:rounding`. `pill` uses a true capsule at Rest and Peek. `soft-square` uses a nine-unit theme-scaled radius in compact states. `outline` keeps system geometry while strengthening the border. A numeric `appearance.corner_radius` explicitly overrides inherited geometry in pixels.
 
-Buttons inside shelves inherit that same effective radius. Persistent current/enabled state uses selected fill. Hover uses tonal fill without a stroke; keyboard focus adds the stronger theme focus fill and a short accent chin inset along the bottom edge. The chin has fixed geometry and changes only opacity, so focus never moves content or neighboring controls. Glyph-backed controls render through Omarchy's `OpticalGlyph` so their painted bounds, rather than only their font boxes, are visually centered.
+Buttons inside shelves inherit that same effective radius. Persistent
+current/enabled state uses selected fill. Hover uses tonal fill without a
+stroke; keyboard focus adds the stronger theme focus fill and a short accent
+chin inset along the compact surface's bottom edge. The chin has fixed geometry
+and changes only opacity, so focus never moves content or neighboring controls.
+Glyph-backed controls render through Omarchy's `OpticalGlyph` so their painted
+bounds, rather than only their font boxes, are visually centered.
 
 ## Components
 
@@ -85,7 +98,11 @@ Buttons inside shelves inherit that same effective radius. Persistent current/en
 ### Peek
 
 - Appears immediately on pointer entry and collapses after the configured delay.
-- Keyboard invocation retains this same horizontal surface instead of changing to a separate layout. Arrows and `h/j/k/l` move the fixed focus chin; pointer hover can take over selection; activation morphs into the target surface or delegates to its stock panel; Escape closes.
+- Keyboard invocation retains this same horizontal surface instead of changing
+  to a separate layout. A vertical bar renders it in the retained overlay,
+  attached to Rest and expanding inward. Arrows and `h/j/k/l` move the fixed
+  focus chin; pointer hover can take over selection; activation morphs into the
+  target surface or delegates to its stock panel; Escape closes.
 - Renders compact proxy controls and routes pointer variants, scrolling, keyboard activation, and panel handoff through the shell or a compatibility adapter.
 - Does not instantiate arbitrary bar widgets. Clock, status indicators, and
   keyboard layout have explicit hidden compatibility bridges when their visible
@@ -114,7 +131,9 @@ Buttons inside shelves inherit that same effective radius. Persistent current/en
 ### Transient
 
 - A routine output-volume or brightness change can temporarily replace Rest with one horizontal readout at bar height.
-- The transient renders inside the bar widget. Hover Peek and every retained user-open surface outrank it; a provider event also suppresses it.
+- The transient renders inside a horizontal bar widget or grows inward from a
+  vertical Rest anchor in the retained overlay. Hover Peek and every retained
+  user-open surface outrank it; a provider event also suppresses it.
 - Clicking a transient opens its matching Focus view. Reduced motion keeps the state change and removes the spatial morph.
 
 ### Controls

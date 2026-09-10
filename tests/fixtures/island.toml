@@ -4,6 +4,7 @@ shelf_height = 177
 focus_height = 233
 controls_height = 322
 clock_format = "HH:mm"
+clock_format_vertical = "H\nmm"
 
 [behavior]
 collapse_delay_ms = 70

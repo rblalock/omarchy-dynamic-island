@@ -15,7 +15,7 @@ where Omarchy renders its bar. Placement within each bar comes from
 
 | Key | Default | Behavior |
 |---|---:|---|
-| `placement.top_offset` | `0` | Non-negative distance from the top edge for retained detail. |
+| `placement.top_offset` | `0` | Non-negative distance from the top edge for retained detail on a horizontal bar. Vertical detail follows the live Island anchor instead. |
 | `appearance.style` | `"system"` | `system` inherits Hyprland corner geometry. `pill`, `soft-square`, and `outline` remain explicit visual choices. |
 | `appearance.shelf_width` | `430` | Shared retained width, capped to the screen. |
 | `appearance.shelf_height` | `0` | Minimum Shelf height; `0` follows active content and oversized content scrolls. |
@@ -23,6 +23,7 @@ where Omarchy renders its bar. Placement within each bar comes from
 | `appearance.controls_height` | `318` | All Controls height. |
 | `appearance.corner_radius` | `"system"` | Inherits Omarchy's live `Style.cornerRadius`, sourced from Hyprland `decoration:rounding`. A non-negative number explicitly overrides it in pixels. |
 | `appearance.clock_format` | `"h:mm AP"` | Qt date/time format. |
+| `appearance.clock_format_vertical` | `"HH\nmm"` | Compact two-line Qt date/time format used at Rest on a left or right bar. |
 | `appearance.background` | `""` | QML color override. Empty uses the popup background while open and inherits the stock bar's live transparency while at Rest. |
 | `appearance.border` | `""` | QML color override; empty inherits the popup border. |
 | `appearance.allow_custom_qml` | `true` | Enables optional trusted provider views; declarative fallback remains available when false. |
@@ -47,7 +48,21 @@ override opts out of this inheritance.
 | `motion.collapse_ms` | `180` | Faster cubic collapse duration. |
 | `motion.content_ms` | `150` | Fade and radius duration. |
 
-`omarchy-shell omarchy-island controls` opens Controls directly. The default `keyboard` target retains the exact horizontal Peek rendered by the bar widget on hover. Arrows or `h/j/k/l` move through those proxy controls and spatially through retained details; `Tab` and `Shift+Tab` follow the focus chain; `Home` and `End` move to its bounds; `Enter` or `Space` activates; and `Escape` closes. While the top-level Peek has keyboard focus, `1` through `9` activate the corresponding displayed item and `0` activates the tenth. These shortcuts follow the current rendered order and do not replace directional navigation. A pointer can take over the focused item without making keyboard-open Peek collapse on exit. Audio keeps Left/Right and `h/l` for adjustment while its slider is focused, with `j/k` available to leave it. `OMARCHY_ISLAND_REDUCED_MOTION=1` also disables spatial motion. Old spring, bounce, and general duration keys are ignored.
+`omarchy-shell omarchy-island controls` opens Controls directly. The default
+`keyboard` target retains the exact horizontal Peek shown on hover. On a top or
+bottom bar it grows within the bar; on a left or right bar the same surface
+grows inward over the desktop from the bar-hosted Rest anchor. Arrows or
+`h/j/k/l` move through those proxy controls and spatially through retained
+details; `Tab` and `Shift+Tab` follow the focus chain; `Home` and `End` move to
+its bounds; `Enter` or `Space` activates; and `Escape` closes. While the
+top-level Peek has keyboard focus, `1` through `9` activate the corresponding
+displayed item and `0` activates the tenth. These shortcuts follow the current
+rendered order and do not replace directional navigation. A pointer can take
+over the focused item without making keyboard-open Peek collapse on exit.
+Audio keeps Left/Right and `h/l` for adjustment while its slider is focused,
+with `j/k` available to leave it. `OMARCHY_ISLAND_REDUCED_MOTION=1` also
+disables spatial motion. Old spring, bounce, and general duration keys are
+ignored.
 
 ## Layout
 

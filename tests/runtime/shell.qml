@@ -18,6 +18,7 @@ ShellRoot {
   property int clockPanelToggles: 0
   property int powerPercentageToggles: 0
   property int weatherRefreshes: 0
+  property var lastTrayPoint: null
 
   readonly property var hostManifest: ({
     id: "rblalock.omarchy-island",
@@ -96,6 +97,7 @@ ShellRoot {
   QtObject {
     id: trayWidget
     property var allItems: []
+    function openTrayMenu(item, anchor, point) { harness.lastTrayPoint = point }
   }
 
   QtObject {
@@ -134,6 +136,7 @@ ShellRoot {
     id: fakeBar
     property var shell: fakeShell
     property var activePopout: null
+    property string position: "top"
     property bool vertical: false
     property bool transparent: false
     property int barSize: 24
@@ -324,7 +327,7 @@ ShellRoot {
       var adapterViews = [
         "ControlStateSurface.qml", "NavigableSurface.qml", "ShelfButton.qml", "ProxyButton.qml",
         "ClockButton.qml", "VolumePill.qml", "VolumeShelf.qml", "DisplayPill.qml", "DisplayShelf.qml",
-        "OsdPill.qml"
+        "OsdPill.qml", "CompactSurface.qml"
       ]
       for (var viewIndex = 0; viewIndex < adapterViews.length; viewIndex++) {
         var adapterComponent = Qt.createComponent(
@@ -444,7 +447,8 @@ ShellRoot {
         return
       }
       var reducedMotion = Quickshell.env("OMARCHY_ISLAND_REDUCED_MOTION") === "1"
-      if (service.clockFormat !== "HH:mm" || service.collapseDelayMs !== 70
+      if (service.clockFormat !== "HH:mm" || service.verticalClockFormat !== "H\nmm"
+          || service.collapseDelayMs !== 70
           || service.motionEnabled !== !reducedMotion
           || service.motionExpandMs !== (reducedMotion ? 0 : 111)
           || service.motionCollapseMs !== (reducedMotion ? 0 : 77)
@@ -815,6 +819,57 @@ ShellRoot {
       }
       fakeShell.toggleAllowed = true
       fakeShell.bar = originalBar
+
+      hostedIsland.revealIntent = false
+      fakeBar.position = "left"
+      fakeBar.vertical = true
+      if (!hostedIsland.vertical || hostedIsland.barPosition !== "left"
+          || hostedIsland.implicitHeight !== fakeBar.barSize
+          || hostedIsland.adapterAnchorX !== fakeBar.barSize - 1
+          || hostedIsland.adapterAnchorY !== Math.round((hostedIsland.implicitHeight - 1) / 2)
+          || hostedIsland.sideCompactVisible) {
+        console.error("HARNESS_FAIL vertical rest geometry", JSON.stringify(hostedIsland.debugState()),
+          hostedIsland.adapterAnchorX, hostedIsland.adapterAnchorY)
+        Qt.exit(39)
+        return
+      }
+      hostedIsland.revealIntent = true
+      if (!hostedIsland.inventoryVisible || !hostedIsland.sideCompactVisible
+          || hostedIsland.expandedWidth <= fakeBar.barSize
+          || hostedIsland.implicitHeight !== fakeBar.barSize) {
+        console.error("HARNESS_FAIL left edge compact handoff", hostedIsland.debugState())
+        Qt.exit(39)
+        return
+      }
+      harness.lastTrayPoint = null
+      if (!service.activateTrayItem({ menu: true }, "menu", { width: 40, height: 20 })
+          || !harness.lastTrayPoint || harness.lastTrayPoint.x !== 40
+          || harness.lastTrayPoint.y !== 10) {
+        console.error("HARNESS_FAIL left edge tray anchor", harness.lastTrayPoint)
+        Qt.exit(39)
+        return
+      }
+      fakeBar.position = "right"
+      harness.lastTrayPoint = null
+      if (hostedIsland.barPosition !== "right" || hostedIsland.adapterAnchorX !== 0
+          || !service.activateTrayItem({ menu: true }, "menu", { width: 40, height: 20 })
+          || !harness.lastTrayPoint || harness.lastTrayPoint.x !== 0
+          || harness.lastTrayPoint.y !== 10) {
+        console.error("HARNESS_FAIL right edge anchor", hostedIsland.debugState())
+        Qt.exit(39)
+        return
+      }
+      hostedIsland.revealIntent = false
+      fakeBar.vertical = false
+      fakeBar.position = "bottom"
+      if (hostedIsland.vertical || hostedIsland.barPosition !== "bottom"
+          || hostedIsland.implicitHeight <= 0
+          || hostedIsland.adapterAnchorY !== 0) {
+        console.error("HARNESS_FAIL bottom edge compatibility", hostedIsland.debugState())
+        Qt.exit(39)
+        return
+      }
+      fakeBar.position = "top"
       console.log("HARNESS_OK", service.inspectJson())
       Qt.quit()
     }

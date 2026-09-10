@@ -24,8 +24,12 @@ externally visible action.
 
 ## Code map
 
-- `IslandBarWidget.qml` owns Rest, Peek, compact transients, and bar gestures.
-- `RetainedWindow.qml` owns only focused-monitor Detail and keyboard capture.
+- `IslandBarWidget.qml` owns Rest, horizontal-bar Peek/transients, the vertical
+  Rest anchor, and bar gestures.
+- `RetainedWindow.qml` owns focused-monitor Detail, keyboard capture, and the
+  horizontal Peek/transient surface that grows inward from a vertical bar.
+- `components/CompactSurface.qml` is the single shared Peek/transient renderer;
+  do not duplicate its controls in either host.
 - `Service.qml` coordinates configuration, stock adapters, semantic activity,
   provider ownership, and IPC.
 - `lib/ProviderContract.js` is the schema-version and capability validator.

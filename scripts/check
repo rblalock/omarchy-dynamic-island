@@ -74,9 +74,10 @@ test -f .agents/skills/omarchy-island/references/provider-api.md
 rg -q '^name: omarchy-island$' .agents/skills/omarchy-island/SKILL.md
 
 if rg -n 'ClockButton|ActivityPill|VolumePill|DisplayPill|ProxyButton' RetainedWindow.qml; then
-  echo "RetainedWindow.qml must not render a duplicate Rest, Peek, or transient surface" >&2
+  echo "RetainedWindow.qml must reuse CompactSurface instead of duplicating compact controls" >&2
   exit 1
 fi
+rg -q 'CompactSurface' RetainedWindow.qml
 
 mapfile -t qml_files < <(find . -path './.git' -prune -o -name '*.qml' -type f -print | sort)
 qmllint -I /usr/share/omarchy/shell "${qml_files[@]}"

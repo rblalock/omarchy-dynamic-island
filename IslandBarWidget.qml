@@ -25,11 +25,13 @@ Ui.BarWidget {
     && typeof island.activeBarHost === "function" && island.activeBarHost() === root
   readonly property bool osdTransientHere: island && island.transientActive
     && island.transientKind === "osd" && island.osdScreenName === hostScreenName
-  readonly property bool inventoryVisible: keyboardInventory || (revealIntent && !osdTransientHere)
+  readonly property bool inventoryVisible: keyboardInventory
+    || (revealIntent && !osdTransientHere && (!island || island.retainedMode === ""))
   readonly property bool transientVisible: island && island.transientActive && !inventoryVisible
     && (island.transientKind !== "osd"
       || osdTransientHere)
   readonly property bool revealed: inventoryVisible
+  readonly property bool sideCompactVisible: vertical && (inventoryVisible || transientVisible)
   readonly property string restMode: inventoryVisible ? "peek"
     : (transientVisible ? "transient"
       : (companionAtRest ? "companion" : (activityAtRest ? "activity" : "clock")))
@@ -49,13 +51,13 @@ Ui.BarWidget {
     var window = root.hostWindow()
     return window && window.screen ? String(window.screen.name || "") : ""
   }
+  readonly property string barPosition: bar ? String(bar.position || "top") : "top"
   readonly property real horizontalPadding: Style.space(4)
   readonly property real restWidth: transientVisible
-    ? (island.transientKind === "display" ? displayPill.implicitWidth
-      : (island.transientKind === "osd" ? osdPill.implicitWidth : volumePill.implicitWidth))
+    ? compactSurface.implicitWidth
     : (companionAtRest ? companionRest.implicitWidth
       : (activityAtRest ? activityPill.implicitWidth : restClock.implicitWidth))
-  readonly property real expandedWidth: Math.max(restWidth, proxyRow.implicitWidth)
+  readonly property real expandedWidth: Math.max(restWidth, compactSurface.implicitWidth)
   readonly property real targetWidth: inventoryVisible ? expandedWidth : restWidth
   readonly property bool inheritTransparentBar: bar && bar.transparent === true
     && (!island || island.backgroundOverride === "")
@@ -65,14 +67,39 @@ Ui.BarWidget {
     || (island && island.styleName === "outline") ? 1 : 0
   readonly property real surfaceRadius: {
     var inherited = island ? island.cornerRadius : Style.cornerRadius
-    if (island && island.styleName === "pill") return implicitHeight / 2
+    if (island && island.styleName === "pill") return Math.min(implicitWidth, implicitHeight) / 2
     if (island && island.styleName === "soft-square") return Style.space(9)
-    return Math.min(inherited, implicitHeight / 2)
+    return Math.min(inherited, Math.min(implicitWidth, implicitHeight) / 2)
+  }
+  readonly property real adapterAnchorX: vertical
+    ? (barPosition === "left" ? Math.max(0, barSize - 1) : 0)
+    : Math.round((Math.max(1, width > 0 ? width : implicitWidth) - 1) / 2)
+  readonly property real adapterAnchorY: vertical
+    ? Math.round((Math.max(1, height > 0 ? height : implicitHeight) - 1) / 2)
+    : (barPosition === "bottom" ? 0 : Math.max(0, (height > 0 ? height : implicitHeight) - 1))
+
+  implicitWidth: vertical ? barSize : targetWidth + horizontalPadding * 2
+  implicitHeight: vertical ? barSize : Style.bar.sizeHorizontal
+  clip: true
+
+  function screenRect() {
+    var window = root.hostWindow()
+    var point = { x: Number(root.x || 0), y: Number(root.y || 0) }
+    try {
+      if (window && window.contentItem) point = window.contentItem.mapFromItem(root, 0, 0)
+    } catch (error) {
+    }
+    return { x: Number(point.x || 0), y: Number(point.y || 0), width: width, height: height }
   }
 
-  implicitWidth: targetWidth + horizontalPadding * 2
-  implicitHeight: Style.bar.sizeHorizontal
-  clip: true
+  function holdReveal() {
+    collapseDelay.stop()
+    revealIntent = true
+  }
+
+  function releaseReveal() {
+    collapseDelay.restart()
+  }
 
   function isLiveStockBar(candidate) {
     return !!(candidate
@@ -148,7 +175,7 @@ Ui.BarWidget {
       id: "omarchy.clock",
       format: island.clockFormat,
       formatAlt: "d MMMM 'W'ww yyyy",
-      verticalFormat: island.clockFormat,
+      verticalFormat: island.verticalClockFormat,
       verticalFormatAlt: "dd\nMMM\n'W'ww\n''yy"
     }
   }
@@ -187,7 +214,7 @@ Ui.BarWidget {
     if (action === "secondary" && typeof adapter.cycleFormat === "function") {
       adapter.cycleFormat()
       if (island && "activeFormat" in adapter)
-        island.setClockFormat(String(adapter.activeFormat || ""), true)
+        island.setClockFormat(String(adapter.activeFormat || ""), true, root.vertical)
       return true
     }
     return false
@@ -286,10 +313,14 @@ Ui.BarWidget {
       restPresentation: restPresentation,
       transientVisible: transientVisible,
       osdTransientHere: osdTransientHere,
+      vertical: vertical,
+      barPosition: barPosition,
+      sideCompactVisible: sideCompactVisible,
       restWidth: Number(restWidth || 0),
       expandedWidth: Number(expandedWidth || 0),
       implicitWidth: Number(implicitWidth || 0),
-      rowImplicitWidth: Number(proxyRow.implicitWidth || 0),
+      implicitHeight: Number(implicitHeight || 0),
+      rowImplicitWidth: Number(compactSurface.rowImplicitWidth || 0),
       borderOpacity: Number(expandingBorder.opacity || 0),
       surfaceOpacity: Number(islandSurface.opacity || 0),
       surfaceTargetOpacity: surfaceTargetOpacity,
@@ -331,6 +362,7 @@ Ui.BarWidget {
     if (keyboardInventory) Qt.callLater(ensureKeyboardSelection)
     else keyboardSelectionId = ""
   }
+  onVerticalChanged: if (vertical) widthAnimation.complete()
   Component.onCompleted: registerWithService()
   Component.onDestruction: unregisterFromService()
 
@@ -349,8 +381,8 @@ Ui.BarWidget {
     active: root.island && root.island.clockWidgetUrl !== ""
       && !root.island.hasMountedStockWidget("omarchy.clock")
     source: active ? root.island.clockWidgetUrl : ""
-    x: Math.round((root.width - width) / 2)
-    y: root.height - height
+    x: root.adapterAnchorX
+    y: root.adapterAnchorY
     width: 1
     height: 1
     opacity: 0
@@ -362,6 +394,8 @@ Ui.BarWidget {
     id: stockIndicatorLoader
     active: root.island && !root.island.hasMountedStockWidget("omarchy.indicators")
     source: active ? root.island.pluginEntryPointUrl("omarchy.indicators", "barWidget") : ""
+    x: root.adapterAnchorX
+    y: root.adapterAnchorY
     width: 1
     height: 1
     opacity: 0
@@ -373,6 +407,8 @@ Ui.BarWidget {
     id: stockKeyboardLoader
     active: root.island && !root.island.hasMountedStockWidget("omarchy.keyboard-layout")
     source: active ? root.island.pluginEntryPointUrl("omarchy.keyboard-layout", "barWidget") : ""
+    x: root.adapterAnchorX
+    y: root.adapterAnchorY
     width: 1
     height: 1
     opacity: 0
@@ -384,6 +420,8 @@ Ui.BarWidget {
     id: stockAudioLoader
     active: root.island && !root.island.hasMountedStockWidget("omarchy.audio")
     source: active ? root.island.pluginEntryPointUrl("omarchy.audio", "barWidget") : ""
+    x: root.adapterAnchorX
+    y: root.adapterAnchorY
     width: 1
     height: 1
     opacity: 0
@@ -395,6 +433,8 @@ Ui.BarWidget {
     id: stockDisplayLoader
     active: root.island && !root.island.hasMountedStockWidget("omarchy.monitor")
     source: active ? root.island.pluginEntryPointUrl("omarchy.monitor", "barWidget") : ""
+    x: root.adapterAnchorX
+    y: root.adapterAnchorY
     width: 1
     height: 1
     opacity: 0
@@ -406,6 +446,8 @@ Ui.BarWidget {
     id: stockTrayLoader
     active: root.island && !root.island.hasMountedStockWidget("omarchy.tray")
     source: active ? root.island.pluginEntryPointUrl("omarchy.tray", "barWidget") : ""
+    x: root.adapterAnchorX
+    y: root.adapterAnchorY
     width: 1
     height: 1
     opacity: 0
@@ -417,6 +459,8 @@ Ui.BarWidget {
     id: stockBluetoothLoader
     active: root.island && !root.island.hasMountedStockWidget("omarchy.bluetooth")
     source: active ? root.island.pluginEntryPointUrl("omarchy.bluetooth", "barWidget") : ""
+    x: root.adapterAnchorX
+    y: root.adapterAnchorY
     width: 1
     height: 1
     opacity: 0
@@ -428,6 +472,8 @@ Ui.BarWidget {
     id: stockNetworkLoader
     active: root.island && !root.island.hasMountedStockWidget("omarchy.network")
     source: active ? root.island.pluginEntryPointUrl("omarchy.network", "barWidget") : ""
+    x: root.adapterAnchorX
+    y: root.adapterAnchorY
     width: 1
     height: 1
     opacity: 0
@@ -439,6 +485,8 @@ Ui.BarWidget {
     id: stockPowerLoader
     active: root.island && !root.island.hasMountedStockWidget("omarchy.power")
     source: active ? root.island.pluginEntryPointUrl("omarchy.power", "barWidget") : ""
+    x: root.adapterAnchorX
+    y: root.adapterAnchorY
     width: 1
     height: 1
     opacity: 0
@@ -452,6 +500,9 @@ Ui.BarWidget {
     ignoreUnknownSignals: true
     function onConfiguredClockFormatChanged() {
       if (root.island.clockFormatOverride === "") root.configureClockAdapter()
+    }
+    function onConfiguredVerticalClockFormatChanged() {
+      if (root.island.verticalClockFormatOverride === "") root.configureClockAdapter()
     }
   }
 
@@ -499,111 +550,33 @@ Ui.BarWidget {
   Item {
     id: viewport
     anchors.fill: parent
-    anchors.leftMargin: root.horizontalPadding
-    anchors.rightMargin: root.horizontalPadding
+    anchors.leftMargin: root.vertical ? 0 : root.horizontalPadding
+    anchors.rightMargin: root.vertical ? 0 : root.horizontalPadding
     clip: true
 
-    Row {
-      id: proxyRow
+    CompactSurface {
+      id: compactSurface
       anchors.centerIn: parent
-      spacing: Style.space(2)
-      opacity: root.inventoryVisible ? 1 : 0
-      enabled: root.inventoryVisible
-
-      Behavior on opacity {
-        enabled: root.island && root.island.motionEnabled
-        NumberAnimation {
-          duration: root.island ? root.island.contentMotionMs : 0
-          easing.type: Easing.OutCubic
-        }
-      }
-
-      Repeater {
-        model: root.proxyItems
-
-        ProxyButton {
-          required property int index
-          required property var modelData
-          readonly property bool activityProxy: String(modelData.id || "") === "omarchy-island.activities"
-          readonly property var liveActivity: activityProxy && root.island
-            ? root.island.displayActivity : null
-          glyph: String(liveActivity ? (liveActivity.glyph || "󰐕") : (modelData.glyph || ""))
-          iconKind: String(modelData.iconKind || "")
-          glyphFontFamily: modelData.fontFamily ? String(modelData.fontFamily) : Style.font.family
-          customUrl: String(activityProxy && liveActivity && root.island
-            ? root.island.presentationUrl(liveActivity,
-              root.island.eventActive ? "event" : "compact")
-            : (modelData.customUrl || ""))
-          wheelEnabled: root.island && (
-            (String(modelData.kind || "") === "audio" && root.island.audioAvailable)
-            || (String(modelData.kind || "") === "display" && root.island.displayAvailable))
-          activity: liveActivity || modelData.activity || null
-          island: root.island
-          bar: root.bar
-          interactive: root.inventoryVisible
-          selected: root.keyboardInventory && root.keyboardSelectionId === String(modelData.id || "")
-          accessibleName: String(liveActivity
-            ? liveActivity.title : (modelData.label || "Open system control"))
-          onActivated: root.island.triggerProxy(modelData, root.keyboardInventory)
-          onSecondaryActivated: root.island.triggerProxyAction(modelData, "secondary", root.keyboardInventory)
-          onMiddleActivated: root.island.triggerProxyAction(modelData, "middle", root.keyboardInventory)
-          onHoveredChanged: if (hovered && root.keyboardInventory)
-            root.keyboardSelectionId = String(modelData.id || "")
-          onWheelMoved: function(delta) { root.island.scrollProxy(modelData, delta) }
-        }
-      }
-
-      Rectangle {
-        visible: root.island ? root.island.includeClock : true
-        width: 1
-        height: Style.space(14)
-        anchors.verticalCenter: parent.verticalCenter
-        color: Color.popups.border
-        opacity: 0.45
-      }
-
-      Item {
-        visible: root.island ? root.island.includeClock : true
-        width: visible ? peekClock.implicitWidth : 0
-        height: root.implicitHeight
-
-        ClockButton {
-          id: peekClock
-          anchors.fill: parent
-          accessibleName: "Open calendar"
-          format: root.island ? root.island.clockFormat : "h:mm AP"
-          cornerRadius: root.island ? root.island.cornerRadius : Style.cornerRadius
-          bar: root.bar
-          interactive: root.inventoryVisible
-          onActivated: root.island.triggerClockAction("primary")
-          onSecondaryActivated: root.island.triggerClockAction("secondary")
-          onMiddleActivated: root.island.triggerClockAction("middle")
-          onHoveredChanged: if (hovered && root.keyboardInventory)
-            root.keyboardSelectionId = "omarchy.clock"
-        }
-
-        Rectangle {
-          anchors.horizontalCenter: parent.horizontalCenter
-          anchors.bottom: parent.bottom
-          anchors.bottomMargin: Style.space(1)
-          width: Style.space(20)
-          height: Style.space(2)
-          radius: height / 2
-          color: Color.accent
-          visible: root.keyboardInventory && root.keyboardSelectionId === "omarchy.clock"
-        }
-      }
+      width: implicitWidth
+      height: implicitHeight
+      visible: !root.vertical && (root.inventoryVisible || root.transientVisible)
+      enabled: visible
+      host: root
+      registrationBar: root.bar
     }
 
     ClockButton {
       id: restClock
       anchors.centerIn: parent
-      width: implicitWidth
+      width: root.vertical ? parent.width : implicitWidth
       height: parent.height
-      visible: !root.inventoryVisible && !root.activityAtRest
-        && !root.companionAtRest && !root.transientVisible
+      visible: !root.activityAtRest && !root.companionAtRest
+        && (root.vertical || (!root.inventoryVisible && !root.transientVisible))
       enabled: visible
-      format: root.island ? root.island.clockFormat : "h:mm AP"
+      vertical: root.vertical
+      format: root.island
+        ? (root.vertical ? root.island.verticalClockFormat : root.island.clockFormat)
+        : (root.vertical ? "HH\nmm" : "h:mm AP")
       cornerRadius: root.island ? root.island.cornerRadius : Style.cornerRadius
       bar: root.bar
       interactive: visible
@@ -616,7 +589,11 @@ Ui.BarWidget {
     ActivityPill {
       id: activityPill
       anchors.centerIn: parent
-      visible: root.activityAtRest && !root.inventoryVisible && !root.transientVisible
+      width: root.vertical ? parent.width : implicitWidth
+      height: parent.height
+      markOnly: root.vertical
+      visible: root.activityAtRest
+        && (root.vertical || (!root.inventoryVisible && !root.transientVisible))
       enabled: visible
       island: root.island
       activity: root.restActivity
@@ -627,7 +604,8 @@ Ui.BarWidget {
       id: companionRest
       anchors.centerIn: parent
       spacing: Style.space(4)
-      visible: root.companionAtRest && !root.inventoryVisible && !root.transientVisible
+      visible: !root.vertical && root.companionAtRest
+        && !root.inventoryVisible && !root.transientVisible
       enabled: visible
 
       ActivityPill {
@@ -653,29 +631,58 @@ Ui.BarWidget {
       }
     }
 
-    VolumePill {
-      id: volumePill
+    Item {
+      id: verticalCompanionRest
       anchors.centerIn: parent
-      visible: root.transientVisible && root.island.transientKind === "audio"
+      width: parent.width
+      height: parent.height
+      visible: root.vertical && root.companionAtRest
       enabled: visible
-      island: root.island
-      onActivated: root.island.openAudio()
-    }
 
-    DisplayPill {
-      id: displayPill
-      anchors.centerIn: parent
-      visible: root.transientVisible && root.island.transientKind === "display"
-      enabled: visible
-      island: root.island
-      onActivated: root.island.openDisplay()
-    }
+      ClockButton {
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        width: Math.max(Style.space(16), parent.width - Style.space(10))
+        vertical: true
+        accessibleName: "Open calendar"
+        format: root.island ? root.island.verticalClockFormat : "HH\nmm"
+        cornerRadius: root.island ? root.island.cornerRadius : Style.cornerRadius
+        bar: root.bar
+        interactive: verticalCompanionRest.visible
+        onActivated: if (root.island) root.island.triggerClockAction("primary")
+        onSecondaryActivated: if (root.island) root.island.triggerClockAction("secondary")
+        onMiddleActivated: if (root.island) root.island.triggerClockAction("middle")
+      }
 
-    OsdPill {
-      id: osdPill
-      anchors.centerIn: parent
-      visible: root.transientVisible && root.island.transientKind === "osd"
-      event: root.island ? root.island.osdEvent : null
+      Item {
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.right: parent.right
+        width: Style.space(10)
+
+        Ui.OpticalGlyph {
+          anchors.centerIn: parent
+          width: parent.width
+          height: parent.width
+          text: root.restActivity ? String(root.restActivity.glyph || "󰐕") : "󰐕"
+          color: root.restActivity && root.restActivity.attention === "critical"
+            ? Color.urgent : Color.popups.text
+          fontFamily: Style.font.family
+          fontSize: Style.font.caption
+        }
+
+        TapHandler {
+          acceptedButtons: Qt.LeftButton
+          gesturePolicy: TapHandler.ReleaseWithinBounds
+          onTapped: if (root.island) root.island.activateActivity(root.restActivity)
+        }
+        HoverHandler { cursorShape: Qt.PointingHandCursor }
+
+        Accessible.role: Accessible.Button
+        Accessible.name: root.restActivity ? String(root.restActivity.title || "Open activity") : "Open activity"
+        Accessible.onPressAction: if (root.island) root.island.activateActivity(root.restActivity)
+      }
     }
   }
 
@@ -687,16 +694,15 @@ Ui.BarWidget {
     propagateComposedEvents: true
 
     onContainsMouseChanged: {
-      if (containsMouse) {
-        collapseDelay.stop()
-        root.revealIntent = true
-      } else collapseDelay.restart()
+      if (containsMouse) root.holdReveal()
+      else root.releaseReveal()
     }
   }
 
   Behavior on implicitWidth {
-    enabled: root.island && root.island.motionEnabled
+    enabled: !root.vertical && root.island && root.island.motionEnabled
     NumberAnimation {
+      id: widthAnimation
       duration: root.island
         ? (root.revealed ? root.island.motionExpandMs : root.island.motionCollapseMs) : 0
       easing.type: Easing.OutCubic
