@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 - 2026-09-09
 
 - Follow the stock bar to left and right edges while preserving the horizontal
   Peek, transient, keyboard, provider, and stock-panel behavior.
