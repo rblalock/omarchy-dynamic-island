@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1 - 2026-09-11
+
+- Restore optional OSD routing on Omarchy 4.0.3 by forwarding through the
+  public `omarchy-shell` IPC boundary instead of a cross-plugin service lookup.
+- Bound OSD payload size, display fields, numeric values, and duration before
+  forwarding or rendering untrusted IPC input.
+- Cover scoped-shell forwarding, fallback, rapid updates, explicit close, and
+  input bounds in the runtime conformance suite.
+
 ## 0.2.0 - 2026-09-09
 
 - Follow the stock bar to left and right edges while preserving the horizontal

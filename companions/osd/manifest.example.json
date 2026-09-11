@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "rblalock.omarchy-island-osd",
   "name": "Omarchy Island OSD",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "author": "Omarchy Island contributors",
   "license": "MIT",
   "description": "Routes Omarchy on-screen display events into Omarchy Island with a safe stock-style fallback.",

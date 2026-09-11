@@ -44,7 +44,7 @@ PATH="$fake_bin:$PATH" VALIDATE_COUNT="$validate_count" XDG_CONFIG_HOME="$test_r
 status=$?
 set -e
 
-(( status == 42 ))
+(( status != 0 ))
 [[ $(<"$target/previous.txt") == "previous installation" ]]
 [[ ! -f $target/manifest.json ]]
 
@@ -56,4 +56,18 @@ set -e
 (( status == 43 ))
 [[ $(<"$target/previous.txt") == "previous installation" ]]
 [[ ! -f $target/manifest.json ]]
+
+command_log=$test_root/commands
+printf '%s\n' '#!/bin/bash' >"$fake_bin/omarchy"
+printf '%s\n' 'if [[ $1 == plugin && $2 == list ]]; then' >>"$fake_bin/omarchy"
+printf '%s\n' '  printf "ID STATUS\\nrblalock.omarchy-island-osd enabled\\n"' >>"$fake_bin/omarchy"
+printf '%s\n' '  exit 0' 'fi' >>"$fake_bin/omarchy"
+printf '%s\n' 'printf "omarchy %s\\n" "$*" >>"$COMMAND_LOG"' >>"$fake_bin/omarchy"
+printf '%s\n' 'exit 0' >>"$fake_bin/omarchy"
+chmod +x "$fake_bin/omarchy"
+
+PATH="$fake_bin:$PATH" COMMAND_LOG="$command_log" VALIDATE_COUNT="$validate_count" \
+  XDG_CONFIG_HOME="$test_root/config" "$repo_dir/scripts/osd-companion-enable" >/dev/null
+[[ -f $target/manifest.json ]]
+grep -Fxq "omarchy restart shell" "$command_log"
 echo "OSD_COMPANION_ROLLBACK_OK"

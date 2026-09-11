@@ -121,6 +121,11 @@ stock-style fallback:
 ~/.config/omarchy/plugins/rblalock.omarchy-island/scripts/osd-companion-enable
 ```
 
+The companion is a managed copy so it remains independent and reversible.
+After updating the main Island plugin, rerun the same command to refresh an
+already-installed companion with the matching release. The helper restarts
+Omarchy Shell once so its keep-loaded panel uses the new files.
+
 Disable it at any time to restore the stock presenter:
 
 ```bash
@@ -132,6 +137,8 @@ For agent-assisted setup, give the user's coding agent this prompt:
 > Install the optional Omarchy Island OSD companion from the installed
 > `rblalock.omarchy-island` plugin. Use its `scripts/osd-companion-enable`
 > helper; do not edit `/usr/share/omarchy` or rewrite shell configuration.
+> Rerun the helper after Island updates so the managed companion copy stays on
+> the same release.
 > Verify that the companion is enabled, that Island remains available on the
 > focused monitor, and that disabling the companion restores `omarchy.osd`.
 

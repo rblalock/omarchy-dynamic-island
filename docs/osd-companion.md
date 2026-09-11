@@ -29,7 +29,12 @@ and restore the stock presenter with:
 ```
 
 Installing or updating the main Island plugin alone never enables this
-replacement.
+replacement or mutates its separately managed copy. Rerun
+`scripts/osd-companion-enable` from the updated main plugin to refresh an
+already-installed companion. The helper validates and replaces only a copy it
+previously installed, then asks Omarchy to rescan and enable it. A successful
+enable ends by restarting Omarchy Shell once because its keep-loaded panel
+cannot reliably adopt replacement QML in place.
 
 ## Supported contract
 
@@ -53,12 +58,13 @@ contract require no Island-specific adapter.
 
 ## Arbitration and fallback
 
-The companion resolves `rblalock.omarchy-island` on every event and asks the
-focused monitor's Island host to accept it. The first update in an OSD sequence
-latches that monitor until the event closes or expires; changing focus during
-volume repeats does not teleport the transient. If the latched monitor is
-removed, Island clears the event and the next update can choose another host.
-Islands on other monitors continue showing their normal Rest content.
+The companion forwards each bounded event through Island's public
+`omarchy-shell` IPC target. This keeps the two plugin IDs independent under
+Omarchy's scoped third-party shell API. The first update in an OSD sequence
+latches the focused monitor until the event closes or expires; changing focus
+during volume repeats does not teleport the transient. If the latched monitor
+is removed, Island clears the event and the next update can choose another
+host. Islands on other monitors continue showing their normal Rest content.
 
 Passive pointer Peek yields to an accepted OSD, then returns immediately when
 the transient ends if the pointer remains over Island. Keyboard-open Peek,
@@ -66,9 +72,14 @@ Shelf, Focus, Controls, and provider events are explicit user or semantic
 ownership and are never displaced by routine OSD feedback.
 
 If Island is missing, still loading, owned by one of those retained surfaces,
-or rejects malformed input, the companion retains a stock-style bottom OSD.
-Duration `0` and explicit `close` work on either route. That fallback is part
-of the replacement rather than a second simultaneous presenter.
+rejects malformed input, or does not answer within one second, the companion
+retains a stock-style bottom OSD. Duration `0` and explicit `close` work on
+either route. That fallback is part of the replacement rather than a second
+simultaneous presenter.
+
+The companion rejects payloads larger than 4 KiB before parsing and bounds
+icons, display text, numeric ranges, and duration before forwarding or
+rendering. Rapid updates are coalesced to the latest pending event.
 
 Island-owned wheel and slider actions continue using the first-party Audio and
 Display transients directly. External hardware and system-script changes are
@@ -94,6 +105,7 @@ omarchy-shell omarchy-island osdClose
 ```
 
 `./scripts/check` validates the root plugin and companion manifest template,
-normalization, focused-monitor routing, progress/message lifecycle, rejection while a retained surface owns
-the Island, direct companion forwarding, fallback parity, explicit close, and
-installer rollback after a failed enable.
+normalization, focused-monitor routing, progress/message lifecycle, rejection
+while a retained surface owns the Island, scoped IPC forwarding, fallback
+parity, rapid-event coalescing, input bounds, explicit close, and installer
+rollback after a failed enable.
