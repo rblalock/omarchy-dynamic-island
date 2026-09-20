@@ -57,8 +57,12 @@ Ui.BarWidget {
     ? compactSurface.implicitWidth
     : (companionAtRest ? companionRest.implicitWidth
       : (activityAtRest ? activityPill.implicitWidth : restClock.implicitWidth))
+  readonly property real restContentHeight: companionAtRest
+    ? verticalCompanionClock.implicitHeight
+    : (activityAtRest ? activityPill.implicitHeight : restClock.implicitHeight)
   readonly property real expandedWidth: Math.max(restWidth, compactSurface.implicitWidth)
   readonly property real targetWidth: inventoryVisible ? expandedWidth : restWidth
+  property real horizontalLayoutWidth: targetWidth + horizontalPadding * 2
   readonly property bool inheritTransparentBar: bar && bar.transparent === true
     && (!island || island.backgroundOverride === "")
   readonly property real surfaceTargetOpacity: inheritTransparentBar
@@ -78,8 +82,8 @@ Ui.BarWidget {
     ? Math.round((Math.max(1, height > 0 ? height : implicitHeight) - 1) / 2)
     : (barPosition === "bottom" ? 0 : Math.max(0, (height > 0 ? height : implicitHeight) - 1))
 
-  implicitWidth: vertical ? barSize : targetWidth + horizontalPadding * 2
-  implicitHeight: vertical ? barSize : Style.bar.sizeHorizontal
+  implicitWidth: vertical ? barSize : horizontalLayoutWidth
+  implicitHeight: vertical ? Math.max(barSize, restContentHeight) : Style.bar.sizeHorizontal
   clip: true
 
   function screenRect() {
@@ -317,6 +321,7 @@ Ui.BarWidget {
       barPosition: barPosition,
       sideCompactVisible: sideCompactVisible,
       restWidth: Number(restWidth || 0),
+      restContentHeight: Number(restContentHeight || 0),
       expandedWidth: Number(expandedWidth || 0),
       implicitWidth: Number(implicitWidth || 0),
       implicitHeight: Number(implicitHeight || 0),
@@ -640,6 +645,7 @@ Ui.BarWidget {
       enabled: visible
 
       ClockButton {
+        id: verticalCompanionClock
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         anchors.left: parent.left
@@ -699,7 +705,7 @@ Ui.BarWidget {
     }
   }
 
-  Behavior on implicitWidth {
+  Behavior on horizontalLayoutWidth {
     enabled: !root.vertical && root.island && root.island.motionEnabled
     NumberAnimation {
       id: widthAnimation

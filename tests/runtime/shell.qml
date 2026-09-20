@@ -254,6 +254,20 @@ ShellRoot {
     retainedWindowEnabled: false
   }
 
+  IslandComponents.ClockButton {
+    id: verticalClockOneLine
+    visible: false
+    vertical: true
+    format: "H"
+  }
+
+  IslandComponents.ClockButton {
+    id: verticalClockStacked
+    visible: false
+    vertical: true
+    format: "H\nmm"
+  }
+
   IslandPlugin.IslandBarWidget {
     id: hostedIsland
     bar: fakeBar
@@ -821,22 +835,38 @@ ShellRoot {
       fakeShell.bar = originalBar
 
       hostedIsland.revealIntent = false
+      var verticalRestConfig = service.copyObject(originalUserConfig)
+      verticalRestConfig.layout = service.copyObject(originalUserConfig.layout)
+      verticalRestConfig.layout.rest_content = "clock"
+      service.userConfig = verticalRestConfig
       fakeBar.position = "left"
       fakeBar.vertical = true
+      if (verticalClockOneLine.implicitHeight <= 0
+          || verticalClockStacked.implicitHeight <= verticalClockOneLine.implicitHeight) {
+        console.error("HARNESS_FAIL vertical clock sizes to stacked text",
+          verticalClockOneLine.implicitHeight, verticalClockStacked.implicitHeight)
+        Qt.exit(39)
+        return
+      }
       if (!hostedIsland.vertical || hostedIsland.barPosition !== "left"
-          || hostedIsland.implicitHeight !== fakeBar.barSize
+          || hostedIsland.restMode !== "clock"
+          || hostedIsland.implicitWidth !== fakeBar.barSize
+          || hostedIsland.implicitHeight <= fakeBar.barSize
+          || hostedIsland.implicitHeight < verticalClockStacked.implicitHeight
           || hostedIsland.adapterAnchorX !== fakeBar.barSize - 1
           || hostedIsland.adapterAnchorY !== Math.round((hostedIsland.implicitHeight - 1) / 2)
           || hostedIsland.sideCompactVisible) {
         console.error("HARNESS_FAIL vertical rest geometry", JSON.stringify(hostedIsland.debugState()),
-          hostedIsland.adapterAnchorX, hostedIsland.adapterAnchorY)
+          hostedIsland.adapterAnchorX, hostedIsland.adapterAnchorY,
+          verticalClockStacked.implicitHeight)
         Qt.exit(39)
         return
       }
+      var verticalRestHeight = hostedIsland.implicitHeight
       hostedIsland.revealIntent = true
       if (!hostedIsland.inventoryVisible || !hostedIsland.sideCompactVisible
           || hostedIsland.expandedWidth <= fakeBar.barSize
-          || hostedIsland.implicitHeight !== fakeBar.barSize) {
+          || hostedIsland.implicitHeight !== verticalRestHeight) {
         console.error("HARNESS_FAIL left edge compact handoff", hostedIsland.debugState())
         Qt.exit(39)
         return
@@ -860,6 +890,7 @@ ShellRoot {
         return
       }
       hostedIsland.revealIntent = false
+      service.userConfig = originalUserConfig
       fakeBar.vertical = false
       fakeBar.position = "bottom"
       if (hostedIsland.vertical || hostedIsland.barPosition !== "bottom"

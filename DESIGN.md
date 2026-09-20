@@ -54,9 +54,10 @@ invisible Wayland keyboard capture; it never renders another Rest clock or Peek
 inventory.
 
 Horizontal-bar Rest and Peek use the active bar height and content-derived
-width. On a vertical bar, square Rest remains in the bar while the same
-horizontal Peek or transient grows inward from that anchor in Island's retained
-overlay; it never creates a second logical Island. Retained views share a
+width. On a vertical bar, Rest stays bar-thickness wide and grows along the
+bar to fit the stacked clock; the same horizontal Peek or transient grows
+inward from that anchor in Island's retained overlay; it never creates a
+second logical Island. Retained views share a
 configurable shelf width, capped to the screen with 12
 theme-scaled pixels of clearance per side. Shelf height derives from the active
 collection plus retained chrome, treats an explicit height as a minimum, and

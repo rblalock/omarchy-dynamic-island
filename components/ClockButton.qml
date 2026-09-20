@@ -20,8 +20,11 @@ Item {
   readonly property string displayText: Qt.formatDateTime(clock.date, format)
   readonly property bool hovered: pointer.containsMouse
 
-  implicitWidth: vertical ? Style.bar.sizeVertical : label.implicitWidth + Style.space(14)
-  implicitHeight: vertical ? Style.bar.sizeVertical
+  implicitWidth: vertical
+    ? (bar ? bar.barSize : Style.bar.sizeVertical)
+    : label.implicitWidth + Style.space(14)
+  implicitHeight: vertical
+    ? Math.max(Style.bar.sizeVertical, label.implicitHeight + Style.space(12))
     : Math.max(label.implicitHeight, Style.bar.sizeHorizontal)
   activeFocusOnTab: true
   Keys.onReturnPressed: root.activated()
@@ -70,7 +73,8 @@ Item {
     font.weight: Font.Medium
     horizontalAlignment: Text.AlignHCenter
     verticalAlignment: Text.AlignVCenter
-    lineHeight: root.vertical ? 0.82 : 1
+    lineHeight: 1
+    wrapMode: Text.NoWrap
     renderType: Text.NativeRendering
   }
 
