@@ -63,9 +63,9 @@ Ui.BarWidget {
   readonly property real expandedWidth: Math.max(restWidth, compactSurface.implicitWidth)
   readonly property real targetWidth: inventoryVisible ? expandedWidth : restWidth
   property real horizontalLayoutWidth: targetWidth + horizontalPadding * 2
-  readonly property bool inheritTransparentBar: bar && bar.transparent === true
-    && (!island || island.backgroundOverride === "")
-  readonly property real surfaceTargetOpacity: inheritTransparentBar
+  // The host already paints the bar, including its glass tint.
+  readonly property bool inheritBarBackground: !!bar && (!island || island.backgroundOverride === "")
+  readonly property real surfaceTargetOpacity: inheritBarBackground
     && !inventoryVisible && !transientVisible ? 0 : 1
   readonly property real borderTargetOpacity: inventoryVisible || transientVisible
     || (island && island.styleName === "outline") ? 1 : 0

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.3 - 2026-11-18
+
+- Let the stock bar show through the idle Island so its glass tint matches
+  the rest of the bar.
+
 ## 0.2.2 - 2026-09-20
 
 - Grow left and right Rest along the bar so the unopened stacked clock is not

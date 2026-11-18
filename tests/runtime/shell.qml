@@ -375,7 +375,7 @@ ShellRoot {
           || hostedIsland.proxyItems.some(function(item) { return item.id === "test.unknown-widget" })
           || fakeBar.clickTargets.length === 0
           || hostedIsland.inventoryVisible || hostedIsland.borderTargetOpacity !== 0
-          || hostedIsland.surfaceTargetOpacity !== 1
+          || hostedIsland.surfaceTargetOpacity !== 0
           || hostedIsland.implicitWidth <= 8) {
         console.error("HARNESS_FAIL standalone proxy bar widget", service.inspectJson())
         Qt.exit(24)

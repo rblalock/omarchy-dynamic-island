@@ -28,8 +28,8 @@ where Omarchy renders its bar. Placement within each bar comes from
 | `appearance.border` | `""` | QML color override; empty inherits the popup border. |
 | `appearance.allow_custom_qml` | `true` | Enables optional trusted provider views; declarative fallback remains available when false. |
 
-With no explicit `appearance.background`, double-clicking empty stock-bar space
-keeps the collapsed Island visually in sync with Omarchy's transparent mode.
+With no explicit `appearance.background`, the collapsed Island shows the bar
+itself, so opaque, glassy, and fully transparent backgrounds all match.
 Revealing Peek or presenting a transient fades the Island background and
 boundary back in so its controls remain legible. An explicit background
 override opts out of this inheritance.
